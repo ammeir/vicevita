@@ -1,4 +1,4 @@
-# VICEvita
+# VICEVita
 
 Description:
 
