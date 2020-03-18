@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
 
-// Comment this line to turn debug off
-//#define PSV_DEBUG_CODE
 
 #ifdef PSV_DEBUG_CODE
 static void PSV_DEBUG(const char* str, ...) {
