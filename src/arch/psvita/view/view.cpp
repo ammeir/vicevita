@@ -123,6 +123,7 @@ void View::init(Controller* controller)
 
 	createAppDirs();
 	createDefConfFile();
+	cleanTmpDir();
 
 	vita2d_init();
 	
@@ -178,7 +179,7 @@ void View::handleMainMenuSelection(string& selection)
 	else if (!selection.compare("Reset")){
 		m_controller->resetComputer();
 		notifyReset();
-		updateSettings();
+		//updateSettings();
 		m_inGame = true;
 		m_uiActive = false;
 	}
@@ -422,6 +423,11 @@ void View::createAppDirs()
 
 	if (!fileExp.dirExist(dir.c_str()))
 		fileExp.makeDir(dir.c_str());
+
+	dir = TMP_DIR;
+
+	if (!fileExp.dirExist(dir.c_str()))
+		fileExp.makeDir(dir.c_str());
 }
 
 void View::createDefConfFile()
@@ -460,10 +466,11 @@ void View::showStartGame()
 	
 	static int filter_list_size = 14;
 	static const char* filter[] = {
-	   "CRT",													// Cartridge image
-       "D64","D71","D80","D81","D82","G64","G41","X64","Z64",	// Disk image
-       "T64","TAP",												// Tape image
-	   "PRG","P00"};											// Program image
+	   "CRT",														// Cartridge image
+       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
+       "T64","TAP",													// Tape image
+	   "PRG","P00",													// Program image
+	   "ZIP"};														// Archive file
 
 	FileExplorer fileExp;
 	fileExp.init(last_game_dir.c_str(), 
@@ -813,6 +820,8 @@ void View::notifyReset()
 	m_controller->syncSetting(CARTRIDGE);
 	string cartridge_name = m_peripherals->getKeyValue(CARTRIDGE);
 	g_game_file = (cartridge_name == "Empty")? "BASIC": cartridge_name;
+
+	updateSettings();
 }
 
 AspectRatio View::strToAspectRatio(const char* value)
@@ -863,6 +872,19 @@ string View::getFileNameFromPath(const char* fpath)
 	}
 
 	return fname;
+}
+
+void View::cleanTmpDir()
+{
+	PSV_DEBUG("cleanTmpDir()");
+	FileExplorer fileExp;
+	fileExp.readDirContent(TMP_DIR);
+	vector<DirEntry> dir_content = fileExp.getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		PSV_DEBUG("Deleting file: %s", (*it).path.c_str());
+		fileExp.deleteFile((*it).path.c_str());
+	}
 }
 
 

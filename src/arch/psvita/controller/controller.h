@@ -88,6 +88,7 @@ class Controller
 
 private:
 	bool			m_inGame;
+	vector<string>	m_zipFileSlots;
 
 	string			getFileNameFromPath(const char* fpath);
 	void			changeJoystickPort(const char* port);
@@ -115,7 +116,9 @@ private:
 	void			detachCartridgeImage();
 	string			getFileExtension(const char* fname);
 	void			strToUpperCase(string& str);
-	image_contents_t* getImageContent(int peripheral, const char* image);
+	//image_contents_t* getImageContent(int peripheral, const char* image);
+	const char*		extractFile(const char *path);
+	bool			isZipFile(const char* fname);
 
 
 public:
@@ -135,7 +138,7 @@ public:
 	void			syncPeripherals();
 	void			syncModelSettings();
 	void			setModelProperty(int key, const char* value);
-	void			getImageFileContents(int peripheral, const char* image, const char*** values, int* size, image_contents_t* content);
+	void			getImageFileContents(int peripheral, const char* image, const char*** values, int* size);
 	int				attachImage(int device, const char* image, const char** values, int size);
 	void			detachImage(int device, const char** values, int size);
 	int				getImageType(const char* image);

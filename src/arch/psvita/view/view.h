@@ -132,6 +132,7 @@ private:
 	KeyboardMode	strToKeyboardMode(const char* value);
 	string			getFileNameFromPath(const char* fpath);
 	void			setHostCpuFrequency(const char* freq);
+	void			cleanTmpDir();
 	void			printTestRect();
 
 

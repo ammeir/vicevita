@@ -27,6 +27,7 @@ static void	 toggleWarpMode();
 static void	 setPendingAction(CTRL_ACTION);
 static void	 checkPendingActions();
 static void	 setSoundVolume(int);
+static void	 pauseEmulation(bool pause);
 
 #endif
 

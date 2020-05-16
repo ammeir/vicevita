@@ -7,6 +7,7 @@
 #define GAME_DIR APP_DATA_DIR	"games/"
 #define SAVE_DIR APP_DATA_DIR	"saves/"
 #define VICE_DIR APP_DATA_DIR	"vice/"
+#define TMP_DIR APP_DATA_DIR	"tmp/"
 
 // ux0:app is not accessible by regular apps but they can access their own resources through app0:
 // which is mounted to point to their own directory and is also mounted as read only.
@@ -80,10 +81,10 @@
 #define ST_VIEW						2 
 
 // Image file type
-#define IMAGE_DISK					1
-#define IMAGE_TAPE					2
-#define IMAGE_CARTRIDGE				3
-#define IMAGE_PROGRAM				4
+#define IMAGE_DISK					0
+#define IMAGE_TAPE					1
+#define IMAGE_CARTRIDGE				2
+#define IMAGE_PROGRAM				3
 
 // Snapshot patch modules. Max 16 letters.
 #define SNAP_MOD_THUMB				"SMOD_THUMB"
