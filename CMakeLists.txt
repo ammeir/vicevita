@@ -57,6 +57,7 @@ include_directories(
 	src/arch/psvita
 	src/arch/psvita/view
 	src/arch/psvita/controller
+	src/arch/psvita/minizip
 	src/c64
 	src/c64dtv
 	src/c64/cart
@@ -190,6 +191,9 @@ add_executable(${SHORT_NAME}
 	src/arch/psvita/view/resources.cpp
 	src/arch/psvita/view/vkeyboard.cpp
 	src/arch/psvita/controller/controller.cpp
+	src/arch/psvita/minizip/ioapi.c
+	src/arch/psvita/minizip/unzip.c
+	#src/arch/psvita/minizip/zip.c
 	src/c64/c64-cmdline-options.c
 	src/c64/c64-memory-hacks.c
 	src/c64/c64-resources.c
@@ -685,7 +689,7 @@ target_link_libraries(${SHORT_NAME}
   SceGxm_stub
   SceCommonDialog_stub
   SceHid_stub 
-  SceNetCtl_stub
+  #SceNetCtl_stub
   SceIofilemgr_stub
   ScePower_stub 
   ScePgf_stub
