@@ -62,14 +62,16 @@ void About::show()
 	// Top seperation line
 	vita2d_draw_line(20, 40, 940, 40, YELLOW_TRANSPARENT);
 
-	vita2d_draw_texture(m_rainbowLogo, 325, 170);
+	vita2d_draw_texture(m_rainbowLogo, 325, 150);
 		
-	txtr_draw_text(400, 190, YELLOW, "VICE VITA C64  v.1.0");
-	txtr_draw_text(325, 240, YELLOW, "Commodore 64 emulator written by:");
-	txtr_draw_text(325, 270, YELLOW, "2019-2020   Amnon-Dan Meir.");
-	txtr_draw_text(325, 300, YELLOW, "1998-2018   VICE team.");
-	txtr_draw_text(325, 345, YELLOW, "For additional information:");
-	txtr_draw_text(325, 375, C64_BLUE, "@ammeir71");
+	txtr_draw_text(400, 170, YELLOW, "VICE VITA C64  v.1.0");
+	txtr_draw_text(325, 220, YELLOW, "Commodore 64 emulator written by:");
+	txtr_draw_text(325, 250, YELLOW, "2019-2020   Amnon-Dan Meir.");
+	txtr_draw_text(325, 280, YELLOW, "1998-2018   VICE team.");
+	txtr_draw_text(325, 325, YELLOW, "For additional information:");
+	txtr_draw_text(325, 355, C64_BLUE, "github.com/ammeir/vicevita");
+	txtr_draw_text(325, 380, C64_BLUE, "Twitter: @ammeir71");
+	
 	
 	// Bottom seperation line
 	vita2d_draw_line(20, 495, 940, 495, YELLOW_TRANSPARENT);
