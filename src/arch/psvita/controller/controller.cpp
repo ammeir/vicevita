@@ -948,7 +948,6 @@ void Controller::syncSetting(int key)
 
 	switch (key){
 	case DRIVE8:
-		PSV_DEBUG("SyncSetting: DRIVE8");
 		// Check if drive has image attached.
 		image_file = file_system_get_disk_name(8);
 
@@ -957,13 +956,10 @@ void Controller::syncSetting(int key)
 
 		if (!image_file){
 			// No disk image attached. 
-			PSV_DEBUG("No disk image attached");
-			
 			// Deallocate old listbox values if any.
 			if (value_list && list_size){
 				const char** p = value_list;
 				for (int i=0; i<list_size; ++i){
-					PSV_DEBUG("Deallocating: %s", *p);
 					lib_free(*p++);
 				}
 				delete[] value_list;
@@ -975,7 +971,6 @@ void Controller::syncSetting(int key)
 			if (!strcmp(key_value, "Empty")){
 				// Image is attached to device but is not showing in settings.
 				// Get drive contents and populate listbox.
-				PSV_DEBUG("Image is attached to device but is not showing in settings");
 				getImageFileContents(key, image_file, &value_list, &list_size);
 				if (list_size){
 					gs_view->onSettingChanged(key, value_list[0], image_file, value_list, list_size, 15);
@@ -985,15 +980,12 @@ void Controller::syncSetting(int key)
 				// Device has attachement and something is showing in settings.
 				// Do nothing if image is current.
 				if (!strcmp(key_value2, image_file)){
-					PSV_DEBUG("Image is current. Do nothing.");
 					return;
 				}
 				// New disk image attached. First deallocate old list values.
-				PSV_DEBUG("New disk image attached");
 				if (value_list && list_size){
 					const char** p = value_list;
 					for (int i=0; i<list_size; ++i){
-						PSV_DEBUG("Deallocating: %s", *p);
 						lib_free(*p++);
 					}
 					delete[] value_list;
@@ -1032,20 +1024,16 @@ void Controller::syncSetting(int key)
 		}
 	case DATASETTE:
 		{
-
-		PSV_DEBUG("SyncSetting: DATASETTE");
 		image_file = tape_get_file_name();
 
 		// Get the listbox values in settings
 		gs_view->getSettingValues(key, &key_value, &key_value2, &value_list, &list_size);
 
 		if (!image_file){
-			PSV_DEBUG("No tape image attached. Deallocate old listbox values if any.");
 			// No tape image attached. Deallocate old listbox values if any.
 			if (list_size > 0){
 				const char** p = value_list;
 				for (int i=0; i<list_size; ++i){
-					PSV_DEBUG("Deallocating: %s", *p);
 					lib_free(*p++);
 				}
 				delete[] value_list;
@@ -1057,16 +1045,13 @@ void Controller::syncSetting(int key)
 
 		if (!strcmp(key_value2, image_file)){
 			// Same tape image attached. Do nothing.
-			PSV_DEBUG("Same tape image attached. Do nothing.");
 			return;
 		}
 
 		// New tape image attached. Delete old list.
-		PSV_DEBUG("New tape image attached. Delete old list.");
 		if (list_size > 0){
 			const char** p = value_list;
 			for (int i=0; i<list_size; ++i){
-				PSV_DEBUG("Deallocating: %s", *p);
 				lib_free(*p++);
 			}
 			delete[] value_list;
@@ -1400,23 +1385,17 @@ void Controller::getViewport(ViewPort* vp, bool borders)
 
 int Controller::attachImage(int device, const char* image, const char** curr_values, int curr_val_size)
 {
-	//PSV_DEBUG("Controller::attachImage()");
 	image = extractFile(image);
-
-	//PSV_DEBUG("image after prepare: %s", image);
 
 	if (!image)
 		return -1;
 
-	//PSV_DEBUG("TRACE1");
 	// Check if device is correct.
 	int type = getImageType(image);
 	switch (type){
 	case IMAGE_DISK:
 	case IMAGE_PROGRAM:
-		//PSV_DEBUG("TRACE2");
 		if (device != DRIVE8) return -1;
-		//PSV_DEBUG("TRACE3");
 		break;
 	case IMAGE_TAPE:
 		if (device != DATASETTE) return -1;
@@ -1424,11 +1403,8 @@ int Controller::attachImage(int device, const char* image, const char** curr_val
 	case IMAGE_CARTRIDGE:
 		if (device != CARTRIDGE) return -1;
 		break;
-	//default:
-		//PSV_DEBUG("default");
 	}
 	
-	//PSV_DEBUG("TRACE4");
 	// Detach old image and deallocate list values
 	if (curr_values && curr_val_size > 0)
 		detachImage(device, curr_values, curr_val_size);
@@ -1438,11 +1414,8 @@ int Controller::attachImage(int device, const char* image, const char** curr_val
 
 	switch (device){
 	case DRIVE8:
-		//PSV_DEBUG("DRIVE8");
 		if (attachDriveImage(image) < 0) 
 			return -1;
-
-		//PSV_DEBUG("TRACE5");
 		content = diskcontents_read(image, 8);
 		break;
 	case DATASETTE:
@@ -1507,7 +1480,6 @@ void Controller::detachImage(int peripheral, const char** values, int size)
 	if (values && size){
 		const char** p = values;
 		for (int i=0; i<size; ++i){
-			//PSV_DEBUG("Deallocating: %s", *p);
 			lib_free(*p);
 			p++;
 		}
@@ -1516,20 +1488,6 @@ void Controller::detachImage(int peripheral, const char** values, int size)
 
 	gs_view->onSettingChanged(peripheral,"Empty","",0,0,15);
 }
-
-//image_contents_t* Controller::getImageContent(int peripheral, const char* image)
-//{
-//	image_contents_t* ret = NULL;
-//
-//	if (peripheral == DRIVE8){
-//		ret = diskcontents_read(image, 8);
-//	}
-//	else if (peripheral == DATASETTE){
-//		ret = tapecontents_read(image);
-//	}
-//
-//	return ret;
-//}
 
 static void toggleJoystickPorts()
 {
@@ -1673,7 +1631,6 @@ static void pauseEmulation(bool pause)
 	}
 }
 
-
 const char* Controller::extractFile(const char *path)
 {
   const char* game_path = path;
@@ -1681,7 +1638,6 @@ const char* Controller::extractFile(const char *path)
   int file_size = 0;
 
   if (isZipFile(path)){
-	//PSV_DEBUG("Zip file identified: %s", path);
 
     char archived_file[512];
 	int image_type;
@@ -1691,14 +1647,11 @@ const char* Controller::extractFile(const char *path)
 
     // Open Zip for reading
     if (!(zipfile = unzOpen(path))){
-		PSV_DEBUG("unzOpen failed: %s", path);
 		return NULL;
 	}
 
     // Get Zip file information
-    if (unzGetGlobalInfo(zipfile, &gi) != UNZ_OK)
-    {
-		PSV_DEBUG("unzGetGlobalInfo failed");
+    if (unzGetGlobalInfo(zipfile, &gi) != UNZ_OK){
 		unzClose(zipfile);
 		return NULL;
     }
@@ -1710,12 +1663,9 @@ const char* Controller::extractFile(const char *path)
 	for (i = 0; i < (int)gi.number_entry; i++){
 		// Get name of the archived file
 		if (unzGetCurrentFileInfo(zipfile, &fi, archived_file, sizeof(archived_file), NULL, 0, NULL, 0) != UNZ_OK){
-			PSV_DEBUG("unzGetCurrentFileInfo failed");
 			unzClose(zipfile);
 			return NULL;
 		}
-
-		//PSV_DEBUG("Found archived file: %s", archived_file);
 
 		image_type = getImageType(archived_file);
 		file_size = fi.uncompressed_size;
@@ -1726,30 +1676,59 @@ const char* Controller::extractFile(const char *path)
 			image_type == IMAGE_CARTRIDGE || 
 			image_type == IMAGE_PROGRAM){
 
-			//PSV_DEBUG("File size = %d", file_size);
-
-			// Open archived file for reading
+			// Supported file found. 
+				
+			// Open file for reading
 			if(unzOpenCurrentFile(zipfile) != UNZ_OK){
-				PSV_DEBUG("unzOpenCurrentFile failed");
 				unzClose(zipfile); 
 				return NULL;
 			}
 
 			file_buffer = new char[file_size];
 				
-			//PSV_DEBUG("Writing file to buffer...");
 			unzReadCurrentFile(zipfile, file_buffer, file_size);
 			unzCloseCurrentFile(zipfile);
+			unzClose(zipfile);
 
-			goto close_archive;
+			FileExplorer fileExp;
+
+			if (m_zipFileSlots.size() < image_type + 1){
+				delete[] file_buffer;
+				return NULL;
+			}
+
+			// Delete previous temp image file.
+			if (!m_zipFileSlots[image_type].empty()){
+				fileExp.deleteFile(m_zipFileSlots[image_type].c_str());
+			}
+
+			// Define new temp image file name.
+			m_zipFileSlots[image_type] = TMP_DIR;
+			m_zipFileSlots[image_type].append(archived_file);
+	
+			// Create image file from the buffer data.
+			FILE *file = fopen(m_zipFileSlots[image_type].c_str(), "w");
+			if (!file){
+				m_zipFileSlots[image_type].clear();
+				return NULL;
+			}
+			if (fwrite(file_buffer, 1, file_size, file) < file_size){
+				fclose(file);
+				m_zipFileSlots[image_type].clear();
+				return NULL;
+			}
+			fclose(file);
+
+			game_path = m_zipFileSlots[image_type].c_str();
+
+			delete[] file_buffer;
+
+			return game_path;
         }
 	
-		PSV_DEBUG("Archived file not supported: %s", archived_file); 
-
 		// Go to the next file in the archive
 		if (i + 1 < (int)gi.number_entry){
 			if (unzGoToNextFile(zipfile) != UNZ_OK){
-				PSV_DEBUG("End of archive"); 
 				unzClose(zipfile);
 				return NULL;
 			}
@@ -1758,52 +1737,6 @@ const char* Controller::extractFile(const char *path)
 
     // No supported files found
     return NULL;
-
-close_archive:
-
-	//PSV_DEBUG("close_archive");
-
-	unzClose(zipfile);
-
-	//PSV_DEBUG("TRACE1");
-
-	FileExplorer fileExp;
-
-	if (m_zipFileSlots.size() < image_type + 1){
-		delete[] file_buffer;
-		return NULL;
-	}
-
-	// Delete previous temp image file.
-	if (!m_zipFileSlots[image_type].empty()){
-		//PSV_DEBUG("deleting archive file: %s, slot: %d", m_zipFileSlots[image_type].c_str(), image_type);
-		fileExp.deleteFile(m_zipFileSlots[image_type].c_str());
-	}
-
-	// Define new temp image file name.
-	m_zipFileSlots[image_type] = TMP_DIR;
-	m_zipFileSlots[image_type].append(archived_file);
-	
-	//PSV_DEBUG("creating archive file: %s, slot: %d", m_zipFileSlots[image_type].c_str(), image_type);
-    
-	// Create image file from the buffer data.
-	FILE *file = fopen(m_zipFileSlots[image_type].c_str(), "w");
-    if (!file){
-		PSV_DEBUG("Failed to open file: %s", m_zipFileSlots[image_type].c_str());
-		m_zipFileSlots[image_type].clear();
-		return NULL;
-    }
-    if (fwrite(file_buffer, 1, file_size, file) < file_size){
-		PSV_DEBUG("Failed to write file: %s", m_zipFileSlots[image_type].c_str());
-		fclose(file);
-		m_zipFileSlots[image_type].clear();
-		return NULL;
-    }
-    fclose(file);
-
-    game_path = m_zipFileSlots[image_type].c_str();
-
-	delete[] file_buffer;
   }
 
   return game_path;
