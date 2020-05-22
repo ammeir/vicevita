@@ -71,7 +71,7 @@ public:
 	virtual			~ControlPad();
 
 	void			init(View*, Controls*, VirtualKeyboard*);
-	void			scan(char* joy_pins, ControlPadMap** maps, int* size, bool touchScan, bool scan_mouse = false);
+	void			scan(ControlPadMap** maps, int* size, bool touchScan, bool scan_mouse = false);
 	void			changeJoystickScanSide(const char* side);
 	void			waitTillButtonsReleased();
 };

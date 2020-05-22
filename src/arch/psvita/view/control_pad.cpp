@@ -49,7 +49,7 @@ void ControlPad::init(View* view, Controls* controls, VirtualKeyboard* keyboard)
 	m_realBtnMask = 0;
 	m_joystickScanSide = 0;
 	
-	// Enable analog sampling
+	// Digital buttons + Analog support.
 	sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 	
 	// Enable front touchscreen
@@ -57,7 +57,7 @@ void ControlPad::init(View* view, Controls* controls, VirtualKeyboard* keyboard)
 	//sceTouchEnableTouchForce(SCE_TOUCH_PORT_FRONT);
 }
 
-void ControlPad::scan(char* joy_pins, ControlPadMap** maps, int* psize, bool scan_keyboard, bool scan_mouse)
+void ControlPad::scan(ControlPadMap** maps, int* psize, bool scan_keyboard, bool scan_mouse)
 {
 	static SceCtrlData ctrl;
 	static SceTouchData touch;

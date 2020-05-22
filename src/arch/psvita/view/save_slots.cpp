@@ -159,7 +159,6 @@ void SaveSlots::buttonReleased(int button)
 			break;
 		case SCE_CTRL_CROSS: // Load
 			if (isSlotOccupied(m_highlightSlot)){
-				//PSV_DEBUG("Loading state...");
 				gtShowMsgBoxNoBtn("Loading...");
 				sceKernelDelayThread(350000); // Just for the looks
 				string snapshot = getfilePath(m_highlightSlot);
@@ -169,20 +168,16 @@ void SaveSlots::buttonReleased(int button)
 					show();
 					return;
 				}
-				//PSV_DEBUG("Load state: TRACE1");
 				// Show the Model changes in the settings.
 				m_controller->syncModelSettings();
-				//PSV_DEBUG("Load state: TRACE2");
 				// Apply the extra settings that are stored in the patch.
 				applyPatchModuleSettings(snapshot.c_str());
-				//PSV_DEBUG("Load state: TRACE3");
 				Navigator::m_running = false; 
 				m_exitCode = EXIT_MENU; // Return to the game
 			}
 			break;
 		case SCE_CTRL_SQUARE: // Save
 		{
-			//PSV_DEBUG("Saving state...");
 			// Do nothing if nothing is loaded
 			if (g_game_file.empty())
 				return;
@@ -216,15 +211,10 @@ void SaveSlots::buttonReleased(int button)
 			gtShowMsgBoxNoBtn("Saving...", this);
 			
 			// Save snaphot and patch it with thumbnail and settings.
-			//PSV_DEBUG("Save state: TRACE1");
 			m_controller->saveState(snap_file.c_str());
-			//PSV_DEBUG("Save state: TRACE2");
 			addThumbToSnap(snap_file.c_str());
-			//PSV_DEBUG("Save state: TRACE3");
 			addSettingsToSnap(snap_file.c_str());
-			//PSV_DEBUG("Save state: TRACE4");
 			populateGrid();
-			//PSV_DEBUG("Save state: TRACE5");
 			setState();
 			show();
 			break;

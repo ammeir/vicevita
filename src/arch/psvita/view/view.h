@@ -142,7 +142,7 @@ public:
 	void			init(Controller* controller);
 
 	void			doModal();
-	void			scanControls(char* joy_pins, ControlPadMap** maps, int* size, bool scan_mouse);
+	void			scanControls(ControlPadMap** maps, int* size, bool scan_mouse);
 	int				createView(int width, int height, int bpp);
 	void			updateView();
 	void			updateViewport(int x, int y, int width, int height);
