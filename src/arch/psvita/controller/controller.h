@@ -116,7 +116,6 @@ private:
 	void			detachCartridgeImage();
 	string			getFileExtension(const char* fname);
 	void			strToUpperCase(string& str);
-	//image_contents_t* getImageContent(int peripheral, const char* image);
 	const char*		extractFile(const char *path);
 	bool			isZipFile(const char* fname);
 
@@ -145,6 +144,7 @@ public:
 	void			setTapeControl(int action);
 	void			setCartControl(int action);
 	void			setBorderVisibility(const char* val);
+	void			setJoystickAutofireSpeed(const char* val);
 };
 
 

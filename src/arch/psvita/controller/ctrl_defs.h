@@ -10,8 +10,13 @@ enum CTRL_ACTION {
 	CTRL_ACTION_KBDCMD_RUN
 };
 
+
 static bool	  gs_frameDrawn = false;
 static bool   gs_bootTime = true;	
+static bool	  gs_autofireOn = false;
+static int	  gs_autofireSpeed = 0;
+static int    gs_moduloDivider = 3;
+static int    gs_frameCounter = 0;
 static int	  gs_showMenuTimer = 0;
 static int	  gs_pauseTimer = 0;
 static int	  gs_loadDiskTimer = 0;

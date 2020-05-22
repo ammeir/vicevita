@@ -107,7 +107,6 @@ extern "C" void PSV_ScanControls()
 {
 	static ControlPadMap* maps[16];
 	int size = 0;
-	char joy_pin_mask = 0x00;
 
 
 	// Goto main menu at boot time. There must be a better place to implement this.
@@ -117,7 +116,7 @@ extern "C" void PSV_ScanControls()
 		return;
 	}
 
-	gs_view->scanControls(&joy_pin_mask, maps, &size, gs_scanMouse);
+	gs_view->scanControls(maps, &size, gs_scanMouse);
 
 	for (int i=0; i<size; ++i){
 		ControlPadMap* map = maps[i];
@@ -137,7 +136,9 @@ extern "C" void PSV_ScanControls()
 			keyboard_set_keyarr_any(row, column, map->ispress);
 			continue;
 		}
-		if (!map->ispress) // Ignore button releases
+
+		// Button releases can be ignored for all special commands except autofire.
+		if (!map->ispress && map->mid != 136) 
 			continue;
 
 		// Special commands
@@ -158,7 +159,7 @@ extern "C" void PSV_ScanControls()
 			keyboard_clear_keymatrix(); // Remove any keys that were not released.
 			gs_view->updateView(); // Force draw in case of still image.
 			break;
-		case 128: // Pause/unpause
+		case 128: // Pause/unpause computer
 			if (!ui_emulation_is_paused())
 				setPendingAction(CTRL_ACTION_PAUSE);
 			else{
@@ -174,7 +175,15 @@ extern "C" void PSV_ScanControls()
 		case 130: // Toggle warp mode
 			toggleWarpMode();
 			break;
-		case 136: // Reset
+		case 136: // Turn autofire on/off
+			if (map->ispress)
+				gs_autofireOn = true;
+			else{
+				gs_autofireOn = false;
+				joystick_value[g_joystickPort] &= ~0x10; 
+			}
+			break;
+		case 137: // Reset computer
 			machine_trigger_reset(gs_machineResetMode);
 			gs_view->notifyReset();
 			break;
@@ -183,8 +192,16 @@ extern "C" void PSV_ScanControls()
 		}
 	}
 
-	checkPendingActions();
+	if (gs_autofireOn){
+		// Toggle joystick fire.
+		if (++gs_frameCounter % gs_moduloDivider == 0){
+			uint8_t joy_pins = joystick_value[g_joystickPort];
+			joystick_value[g_joystickPort] = (joy_pins & 0x10)? joy_pins & ~0x10: joy_pins | 0x10;
+			gs_frameCounter = 0;
+		}
+	}
 
+	checkPendingActions();
 
 	// Because Vice updates the screen inconsistently, we have a problem with updating the statusbar and
 	// showing keyboard magnifying boxes. This seems out of place here but as the scan happens after the 
@@ -766,6 +783,24 @@ Commented out because lack of testing.
 //		}
 //	}	
 //}
+
+void Controller::setJoystickAutofireSpeed(const char* val)
+{
+	// We toggle joystick fire by using modulo function: frame counter % divider.
+	// It's maybe not the best approach but it's the easiest.
+	if (!strcmp(val, "Fast"))
+		gs_moduloDivider = 2; // PAL: 12 clicks/s  NTSC 15 clicks/s
+	else if (!strcmp(val, "Medium fast"))
+		gs_moduloDivider = 3; // PAL: 8 clicks/s  NTSC 10 clicks/s
+	else if (!strcmp(val, "Medium"))
+		gs_moduloDivider = 6; // PAL: 4 clicks/s  NTSC 5 clicks/s
+	else if (!strcmp(val, "Medium slow"))
+		gs_moduloDivider = 12; // PAL: 2 clicks/s  NTSC 2 clicks/s
+	else if (!strcmp(val, "Slow"))
+		gs_moduloDivider = 25; // PAL: 1 click/s  NTSC 1 click/s
+
+	gs_frameCounter = 0;
+}
 
 void Controller::setViciiModel(const char* val)
 {

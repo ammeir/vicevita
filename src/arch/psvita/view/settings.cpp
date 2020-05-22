@@ -66,35 +66,37 @@ typedef struct
 static const char* gs_viciiModelValues[]		= {"PAL","NTSC","Old NTSC","PAL-N"};
 static const char* gs_sidEngineValues[]			= {"FastSID","ReSID"};
 static const char* gs_sidModelValues[]			= {"6581","8580"};
-static const char* gs_joystickPortValues[]		= {"Port 1","Port 2"};
 static const char* gs_aspectRatioValues[]		= {"16:9","4:3","4:3 max"};
 static const char* gs_textureFilterValues[]		= {"Point","Linear"};
 static const char* gs_colorPaletteValues[]		= {"Pepto (PAL)","Colodore","Vice","Ptoing","RGB","None"};
 static const char* gs_borderVisibilityValues[]	= {"Show","Hide","Remove"};
-static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen"};
+static const char* gs_joystickPortValues[]		= {"Port 1","Port 2"};
 static const char* gs_joystickSideValues[]		= {"Left","Right"};
+static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen"};
+static const char* gs_autofireSpeedValues[]		= {"Slow","Medium slow","Medium","Medium fast","Fast"};
 static const char* gs_cpuSpeedValues[]			= {"100%","125%","150%","175%","200%"};
 static const char* gs_hostCpuSpeedValues[]		= {"333 MHz","444 MHz"};
 static const char* gs_fpsCounterValues[]		= {"Show","Hide"};
 static const char* gs_audioPlaybackValues[]		= {"Enabled","Disabled"};
 static const char* gs_machineResetValues[]		= {"Hard","Soft"};
 
-static int gs_settingsEntriesSize = 21;
+static int gs_settingsEntriesSize = 22;
 static SettingsEntry gs_list[] = 
 {
 	{"Machine","","","",0,0,1}, /* Header line */
-	{"VIC-II model", "VICIIModel",  "PAL","",gs_viciiModelValues,4,0,ST_MODEL,VICII_MODEL,0},
-	{"SID engine",   "SIDEngine",   "FastSID","",gs_sidEngineValues,2,0,ST_MODEL,SID_ENGINE,0},
-	{"SID model",    "SIDModel",    "6581","",gs_sidModelValues,2,0,ST_MODEL,SID_MODEL,0},
+	{"VIC-II model","VICIIModel","PAL","",gs_viciiModelValues,4,0,ST_MODEL,VICII_MODEL,0},
+	{"SID engine",  "SIDEngine", "FastSID","",gs_sidEngineValues,2,0,ST_MODEL,SID_ENGINE,0},
+	{"SID model",   "SIDModel",  "6581","",gs_sidModelValues,2,0,ST_MODEL,SID_MODEL,0},
 	{"Video","","","",0,0,1},
 	{"Aspect ratio",  "AspectRatio",  "16:9","",gs_aspectRatioValues,3,0,ST_VIEW,ASPECT_RATIO,0},
 	{"Texture filter","TextureFilter","Linear","",gs_textureFilterValues,2,0,ST_VIEW,TEXTURE_FILTER,0},
 	{"Color palette", "ColorPalette", "Colodore","",gs_colorPaletteValues,6,0,ST_MODEL,COLOR_PALETTE,0},
 	{"Borders",       "Borders",      "Hide","",gs_borderVisibilityValues,2,0,ST_VIEW,BORDERS,0},
 	{"Input","","","",0,0,1},
-	{"Joystick port","JoystickPort","Port 2","",gs_joystickPortValues,2,0,ST_MODEL,JOYSTICK_PORT,0},
-	{"Joystick side","JoystickSide","Left","",gs_joystickSideValues,2,0,ST_VIEW,JOYSTICK_SIDE,0},
-	{"Keyboard mode","KeyboardMode","Split screen","",gs_keyboardModeValues,2,0,ST_VIEW,KEYBOARD_MODE,0},
+	{"Joystick port", "JoystickPort", "Port 2","",gs_joystickPortValues,2,0,ST_MODEL,JOYSTICK_PORT,0},
+	{"Joystick side", "JoystickSide", "Left","",gs_joystickSideValues,2,0,ST_VIEW,JOYSTICK_SIDE,0},
+	{"Autofire speed","AutofireSpeed","Fast","",gs_autofireSpeedValues,5,0,ST_VIEW,JOYSTICK_AUTOFIRE_SPEED,0},
+	{"Keyboard mode", "KeyboardMode", "Split screen","",gs_keyboardModeValues,2,0,ST_VIEW,KEYBOARD_MODE,0},
 	{"Performance","","","",0,0,1},
 	{"CPU speed",     "CPUSpeed",    "100%","",gs_cpuSpeedValues,5,0,ST_MODEL,CPU_SPEED,0},
 	{"Host CPU speed","HostCPUSpeed","333 MHz","",gs_hostCpuSpeedValues,2,0,ST_VIEW,HOST_CPU_SPEED,0},
@@ -102,7 +104,7 @@ static SettingsEntry gs_list[] =
 	{"Audio","","","",0,0,1},
 	{"Playback","Sound","Enabled","",gs_audioPlaybackValues,2,0,ST_MODEL,SOUND,0},
 	{"Other","","","",0,0,1},
-	{"Reset","Reset","Hard","",gs_machineResetValues,2,0,ST_MODEL,MACHINE_RESET,0},
+	{"Reset","Reset","Hard","",gs_machineResetValues,2,0,ST_MODEL,MACHINE_RESET,0}
 };
 
 
@@ -174,14 +176,8 @@ void Settings::buttonReleased(int button)
 			return;
 
 		string conf_file_path;
-
-		if (m_saveDir.empty())
-			conf_file_path = DEF_CONF_FILE_PATH;
-		else
-			conf_file_path = m_saveDir + CONF_FILE_NAME;
-
-		// Create config.ini if it doesn't exist.
-		createConfFile(conf_file_path.c_str());
+		conf_file_path = m_saveDir.empty()? DEF_CONF_FILE_PATH: m_saveDir + CONF_FILE_NAME;
+		prepareConfFile(conf_file_path.c_str());
 		
 		gtShowMsgBoxNoBtn("Saving...", this);
 		sceKernelDelayThread(850000);
@@ -270,8 +266,6 @@ void Settings::navigateDown()
 void Settings::navigateRight()
 {
 	// Change setting value.
-
-	//m_selectingValue = true;
 	SettingsState prev_state = m_state;
 	m_state = STN_STATE_SELECTING; // User selecting state
 	string selection = showValuesListBox(gs_list[m_highlight].values, gs_list[m_highlight].values_size);
@@ -282,11 +276,9 @@ void Settings::navigateRight()
 			gs_list[m_highlight].value = selection;
 			(this->*gs_list[m_highlight].handler)(gs_list[m_highlight].id, gs_list[m_highlight].value.c_str());
 			m_state = (m_gameFile.empty())? STN_STATE_DEFAULT_MOD : STN_STATE_INGAME_MOD;
-			//m_settingsChanged = true;
 		}
 	}
 
-	//m_selectingValue = false;
 	show();
 }
 
@@ -646,8 +638,6 @@ void Settings::createConfFile(const char* file)
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "SIDModel=6581");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "JoystickPort=Port 2");
-		strcat(buf, "\x0D\x0A");
 		strcat(buf, "AspectRatio=16:9");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "TextureFilter=Linear");
@@ -656,9 +646,13 @@ void Settings::createConfFile(const char* file)
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "Borders=Hide");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "KeyboardMode=Split screen");
+		strcat(buf, "JoystickPort=Port 2");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "JoystickSide=Left");
+		strcat(buf, "\x0D\x0A");
+		strcat(buf, "AutofireSpeed=Fast");
+		strcat(buf, "\x0D\x0A");
+		strcat(buf, "KeyboardMode=Split screen");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "CPUSpeed=100");
 		strcat(buf, "\x0D\x0A");
@@ -685,6 +679,37 @@ void Settings::createConfFile(const char* file)
 	}
 }
 
+void Settings::prepareConfFile(const char* ini_file)
+{
+	// This function updates the configure file with the latest version settings.
+
+	if (!ini_file)
+		return;
+
+	FileExplorer fileExp;
+	char* keymaps_value = NULL;
+
+	if (fileExp.fileExist(ini_file)){
+		// Save the keymaps value and delete the outdated conf file.
+		PSV_DEBUG("Configure file already exists. Saving keymaps and deleting file...");
+		keymaps_value = new char[128];
+		IniParser ini_parser;
+		ini_parser.init(ini_file);
+		ini_parser.getKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
+		fileExp.deleteFile(ini_file);
+	}
+	// Create up to date conf file.
+	createConfFile(ini_file);
+
+	if (keymaps_value){
+		// Restore the keymaps value to the new conf file.
+		PSV_DEBUG("Restoring the old keymaps value to the new conf file.");
+		IniParser ini_parser;
+		ini_parser.init(ini_file);
+		ini_parser.setKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
+	}
+}
+
 string Settings::toString(int setting)
 {
 	// Format: key1^value|key2^value|...|keyn^value
@@ -703,6 +728,7 @@ string Settings::toString(int setting)
 			case TEXTURE_FILTER:
 			case BORDERS:
 			case JOYSTICK_SIDE:
+			case JOYSTICK_AUTOFIRE_SPEED:
 			case KEYBOARD_MODE:
 			case HOST_CPU_SPEED:
 				ret.append(gs_list[i].ini_name);
@@ -802,4 +828,6 @@ string Settings::getConfFileDesc()
 	string save_file_path = m_saveDir + CONF_FILE_NAME;
 	return (fileExist(save_file_path.c_str()))? "[Custom]": "[Default]";
 }
+
+
 

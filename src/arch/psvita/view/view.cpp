@@ -445,9 +445,9 @@ bool View::isBorderlessView()
 	return m_settings->getKeyValue(BORDERS) == "Hide"? true: false;
 }
 
-void View::scanControls(char* joy_pins, ControlPadMap** maps, int* size, bool scan_mouse)
+void View::scanControls(ControlPadMap** maps, int* size, bool scan_mouse)
 {
-	m_controlPad->scan(joy_pins, maps, size, m_keyboardOnView, scan_mouse);
+	m_controlPad->scan(maps, size, m_keyboardOnView, scan_mouse);
 }
 
 string View::showMainMenu()
@@ -711,11 +711,14 @@ void View::setProperty(int key, const char* value)
 	case BORDERS:
 		m_controller->setBorderVisibility(value);
 		break;
-	case KEYBOARD_MODE:
-		changeKeyboardMode(strToKeyboardMode(value));
-		break;
 	case JOYSTICK_SIDE:
 		changeJoystickScanSide(value);
+		break;
+	case JOYSTICK_AUTOFIRE_SPEED:
+		m_controller->setJoystickAutofireSpeed(value);
+		break;
+	case KEYBOARD_MODE:
+		changeKeyboardMode(strToKeyboardMode(value));
 		break;
 	case HOST_CPU_SPEED:
 		setHostCpuFrequency(value);
@@ -876,17 +879,14 @@ string View::getFileNameFromPath(const char* fpath)
 
 void View::cleanTmpDir()
 {
-	PSV_DEBUG("cleanTmpDir()");
 	FileExplorer fileExp;
 	fileExp.readDirContent(TMP_DIR);
 	vector<DirEntry> dir_content = fileExp.getDirContent();
 
 	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		PSV_DEBUG("Deleting file: %s", (*it).path.c_str());
 		fileExp.deleteFile((*it).path.c_str());
 	}
 }
-
 
 void View::loadResources()
 {

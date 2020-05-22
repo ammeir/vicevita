@@ -71,11 +71,11 @@ typedef struct{
 	int					y_offset[3];
 } BitmapInfo;
 
-#define JOYSTICK_UP		131
-#define JOYSTICK_DOWN	132
-#define JOYSTICK_LEFT	133
-#define JOYSTICK_RIGHT  134
-#define JOYSTICK_FIRE	135
+#define JOYSTICK_UP			131
+#define JOYSTICK_DOWN		132
+#define JOYSTICK_LEFT		133
+#define JOYSTICK_RIGHT		134
+#define JOYSTICK_FIRE		135
 
 
 extern vector<BitmapInfo> g_controlBitmaps;
@@ -157,7 +157,7 @@ KeyIndex     | 0 | 1 | 2 | 3 | 4 | 5 | 6 | ... | 20 |
 			enum values above (KeyIndex)
 
 			Matrix values:
-            0-125 = Values in C64 keyboard matrix
+            0-119 = Values in C64 keyboard matrix
 			        MSN = row
 					LSN = column
 
@@ -165,16 +165,19 @@ KeyIndex     | 0 | 1 | 2 | 3 | 4 | 5 | 6 | ... | 20 |
 			24    = Shift lock (special value)
 
 			Additional values:
-			126   = None
-            127   = Main Menu
-            128   = Show/Hide Keyboard
-			129   = Pause
-			130   = Swap Joysticks
-			131   = Joystick Up
-			132   = Joystick Down
-			133   = Joystick Left
-			134   = Joystick Right
-			135   = Joystick Fire
+			125   = None
+            126   = Main Menu
+            127   = Show/Hide Keyboard
+			128   = Pause
+			137	  = Reset
+			129   = Swap joysticks
+			130   = Warp mode
+			131   = Joystick up
+			132   = Joystick down
+			133   = Joystick left
+			134   = Joystick right
+			135   = Joystick fire
+			136   = Joystick autofire
 			  
 			  
 			# C64 keyboard matrix:
