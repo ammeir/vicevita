@@ -1847,6 +1847,7 @@ static void setPendingAction(CTRL_ACTION action)
 	case CTRL_ACTION_LOAD_DISK:
 		if (!gs_loadDiskTimer){
 			gs_loadDiskTimer = 50;
+		}
 		break;
 	case CTRL_ACTION_LOAD_TAPE:
 		if (!gs_loadTapeTimer){
