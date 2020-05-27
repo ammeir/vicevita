@@ -23,6 +23,7 @@
 #include "peripherals.h"
 #include "controller.h"
 #include "view.h"
+#include "file_explorer.h"
 #include "texter.h"
 #include "ini_parser.h"
 #include "guitools.h"
@@ -164,7 +165,7 @@ void Peripherals::buttonReleased(int button)
 			if (!isActionAllowed(PERIF_ACTION_ATTACH))
 				return;
 
-			string image = gtShowFileBrowser(GAME_DIR);
+			string image = showFileBrowser(gs_list[m_highlight].id);
 			
 			if (!image.empty()){
 				gtShowMsgBoxNoBtn("Attaching...");
@@ -487,6 +488,35 @@ string Peripherals::showValuesListBox(const char** values, int size)
 	return gtShowListBox(x, m_highligtBarYpos-1, 0, 0, values, size, this);
 }
 
+string Peripherals::showFileBrowser(int peripheral)
+{
+	// Remember last visited folder.
+	static string last_game_dir = GAME_DIR;
+
+	static const char* filterDiskImages[] = {"D64","D71","D80","D81","D82","G64","G41","X64","ZIP",NULL};
+	static const char* filterTapeImages[] = {"T64","TAP","ZIP",NULL};
+	static const char* filterCartImages[] = {"CRT","ZIP",NULL};
+	
+	const char** filter;
+
+	switch (peripheral){
+	case DRIVE8:
+		filter = filterDiskImages; break;
+	case DATASETTE:
+		filter = filterTapeImages; break;
+	case CARTRIDGE:
+		filter = filterCartImages; break;
+	}
+
+	FileExplorer fileExp;
+	fileExp.init(last_game_dir.c_str(),0,0,0,filter);
+	string selection = fileExp.doModal();
+	
+	last_game_dir = fileExp.getDir();
+
+	return selection;
+}
+
 void Peripherals::saveSettingsToFile(const char* ini_file)
 {
 	IniParser ini_parser;
@@ -708,4 +738,5 @@ int	Peripherals::getKeyIndex(int key)
 	}
 	return -1;
 }
+
 
