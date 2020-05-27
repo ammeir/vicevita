@@ -38,6 +38,8 @@ void		PSV_NotifyPalette(unsigned char* palette, int size);
 void		PSV_NotifyFPS(int fps, float percent, int warp_flag);
 void		PSV_NotifyTapeCounter(int count);
 void		PSV_NotifyTapeControl(int control);
+void		PSV_NotifyDriveStatus(int drive, int led);
+void		PSV_NotifyDriveContent(int drive, const char* image);
 void		PSV_NotifyReset();
 int			PSV_ShowMessage(const char* msg, int msg_type);
 #else
@@ -126,7 +128,7 @@ public:
 
 	void			init(View* view);
 	void			resetComputer();
-	int				loadFile(load_type_e type, const char* file_path, int index = 0, const char* target_file = NULL);
+	int				loadFile(load_type_e type, const char* file_path, const char* program_name = NULL, int index = 0, const char* target_file = NULL);
 	int				loadState(const char* file);
 	int				saveState(const char* file_name);
 	int				patchSaveState(patch_data_s* patch);

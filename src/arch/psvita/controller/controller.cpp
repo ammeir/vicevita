@@ -61,6 +61,8 @@ extern "C" {
 #include "raster.h"
 #include "snapshot.h"
 #include "kbdbuf.h"
+#include "maincpu.h"
+#include "t64.h"
 }
 
 #include <cstring>
@@ -260,6 +262,16 @@ extern "C" void	PSV_NotifyTapeControl(int control)
 	gs_view->setTapeControl(control);
 }
 
+extern "C" void	PSV_NotifyDriveStatus(int drive, int led)
+{
+	//gs_view->setDriveStatus(drive, led);
+}
+
+extern "C" void	PSV_NotifyDriveContent(int drive, const char* image)
+{
+	//gs_view->notifyDriveContent(drive, image);
+}
+
 extern "C" int	PSV_ShowMessage(const char* msg, int msg_type)
 {
 	return gs_view->showMessage(msg, msg_type);
@@ -285,8 +297,14 @@ void Controller::init(View* view)
 	for (int i=0; i<4; ++i) m_zipFileSlots.push_back("");
 }
 
-int Controller::loadFile(load_type_e load_type, const char* file, int index, const char* target_file)
+int Controller::loadFile(load_type_e load_type, const char* file, const char* program_name, int index, const char* target_file)
 {
+	//PSV_DEBUG("Controller::loadFile");
+	//PSV_DEBUG("Image: %s", file);
+	//PSV_DEBUG("Program name: %s", program_name);
+	//PSV_DEBUG("index: %d", index);
+	
+
 	if (!file)
 		return -1;
 
@@ -339,6 +357,7 @@ int Controller::loadFile(load_type_e load_type, const char* file, int index, con
 	case CART_LOAD:
 		if (cartridge_attach_image(CARTRIDGE_CRT, file) < 0)
 			return -1;
+		g_game_file = file;
 		pauseEmulation(false);
 		break;
 	case DISK_LOAD:
@@ -366,6 +385,7 @@ int Controller::loadFile(load_type_e load_type, const char* file, int index, con
 		}
 
 		gs_loadProgramName = !str_prog_name.empty()? str_prog_name.c_str(): "*";
+		gs_loadImageName = file;
 		setPendingAction(CTRL_ACTION_LOAD_DISK);
 		pauseEmulation(false);
 		break;
@@ -375,9 +395,51 @@ int Controller::loadFile(load_type_e load_type, const char* file, int index, con
 		if (!tape_image_dev1)
 			return -1;
       
-		if (index > 0)
+		char* prog_name = NULL;
+		string str_prog_name;
+
+	
+		if (tape_image_dev1->type == TAPE_TYPE_TAP){
+			// TAP files.
 			tape_seek_to_file(tape_image_dev1, index);
-     
+		}
+		else{
+			// T64 files. 
+			
+			// Find the name of the program file. 
+			
+			//image_contents_s* contents = tapecontents_read(file);
+			//if (contents) {
+			//	prog_name = image_contents_filename_by_number(contents, index+1); // Indexes start at 1.
+			//	image_contents_destroy(contents);
+			//}
+
+			//// Remove 0xa0 characters from file names.
+			//if (prog_name){
+			//	str_prog_name = prog_name;
+			//	size_t pos = str_prog_name.find_first_of(0xa0);
+			//	if (pos != string::npos){
+			//		str_prog_name = str_prog_name.substr(0, pos);
+			//	}
+			//	lib_free(prog_name);
+			//}
+
+			if (index > 0){
+				tape_seek_to_file(tape_image_dev1, index-1);
+			}
+			else{
+				// There seems to be a bug when trying to seek to the first file in a t64 archive. 
+				// Using index 0 won't give you the first file but the second.
+				// The workaround here is to use the 'total available file records' - 1, 
+				// which will result to VICE not finding the file and rewinding to the first record.
+				// Not sure why this happens. This was just a trial and error discovery.
+				int size = ((t64_t*)(tape_image_dev1->data))->header.num_entries;
+				tape_seek_to_file(tape_image_dev1, size-1);
+			}
+		}
+	
+		gs_loadProgramName = str_prog_name.c_str();
+		gs_loadImageName = file;
 		setPendingAction(CTRL_ACTION_LOAD_TAPE);
 		pauseEmulation(false);
 		break;
@@ -1482,7 +1544,7 @@ int Controller::attachImage(int device, const char* image, const char** curr_val
 			const char** p = list_values;
 			entry = content->file_list;
 			for (int i=0; i<list_size; ++i){
-				*p = image_contents_file_to_string(entry, 1); // allocates memory from heap.
+				*p = image_contents_file_to_string(entry, 1); // allocates memory from heap. 
 				entry = entry->next;
 				p++;
 			}
@@ -1522,148 +1584,6 @@ void Controller::detachImage(int peripheral, const char** values, int size)
 	}
 
 	gs_view->onSettingChanged(peripheral,"Empty","",0,0,15);
-}
-
-static void toggleJoystickPorts()
-{
-	if (g_joystickPort == 1){
-		g_joystickPort = 2;
-		resources_set_int(VICE_RES_JOY_PORT1_DEV, 0); // 0 = None  
-		resources_set_int(VICE_RES_JOY_PORT2_DEV, 1); // 1 = Joystick
-		gs_view->onSettingChanged(JOYSTICK_PORT,"Port 2","",0,0,1);
-	}
-	else{
-		g_joystickPort = 1;
-		resources_set_int(VICE_RES_JOY_PORT1_DEV, 1); 
-		resources_set_int(VICE_RES_JOY_PORT2_DEV, 0); 
-		gs_view->onSettingChanged(JOYSTICK_PORT,"Port 1","",0,0,1);
-	}
-}
-
-static void toggleWarpMode()
-{
-	int value;
-    if (resources_get_int(VICE_RES_WARP_MODE, &value) < 0)
-        return;
-
-	value = value? 0:1;
-	resources_set_int(VICE_RES_WARP_MODE, value);
-}
-
-static void	checkPendingActions()
-{	
-	// Check for pending actions. This function is called at the end of each screen frame. 
-	// That's every 20ms in PAL standard and every 16ms in NTSC standard.
-	
-	if (gs_showMenuTimer > 0){
-		if (--gs_showMenuTimer == 0)
-			video_psv_menu_show();
-	}
-	if (gs_pauseTimer > 0){
-		if (--gs_pauseTimer == 0){
-			ui_pause_emulation(1);
-			gs_view->displayPaused(1);
-			gs_view->updateView();
-		}
-	}
-	if (gs_loadDiskTimer > 0){
-		if (--gs_loadDiskTimer == 0){
-			char* cmd = lib_msprintf("LOAD\"%s\",8,1:\r", gs_loadProgramName.c_str());
-			kbdbuf_feed(cmd);
-			lib_free(cmd);
-			// Schedule run command.
-			setPendingAction(CTRL_ACTION_KBDCMD_RUN);
-		}
-	}
-	if (gs_loadTapeTimer > 0){
-		if (--gs_loadTapeTimer == 0){
-			kbdbuf_feed("LOAD\r");
-			datasette_control(DATASETTE_CONTROL_START);
-			setPendingAction(CTRL_ACTION_KBDCMD_RUN);
-		}
-	}
-	if (gs_kbdCmdRunTimer > 0){
-		if (--gs_kbdCmdRunTimer == 0){
-			kbdbuf_feed("RUN\r");
-		}
-	}
-}
-
-static void setPendingAction(CTRL_ACTION action)
-{
-	// Set actions that for some reason need to be performed after a delay.
-	
-	// Show menu and pause:
-	// Drain the audible sound buffer before the action. 
-	// This is done to prevent hearing remains of previous game audio when loading a new game.
-	// The trick here is to just put the volume down, wait about 200ms until there is
-	// silence in the buffer and then performing the action.
-	// TODO: Find a better way to empty the sound buffer.
-	//
-	// Load tape/disk:
-	// When loading files from peripherals we need to delay the load for the property changes
-	// to be in effect. For instance, if you change drive sound to enabled just before you load,
-	// you won't hear anything. Same thing when you change drive mode to true, the load will get stuck.
-	//
-	// Run commmand:
-	// The Run command must be fed to the keyboard queue after the loading commands 
-	// have been printed to the screen. The command will stay in the queue until the ready
-	// message appears with the blinking cursor.
-
-	switch (action){
-
-	case CTRL_ACTION_SHOW_MENU:
-		if (!gs_showMenuTimer){
-			gs_showMenuTimer = 10;
-			setSoundVolume(0); 
-		}
-		break;
-	case CTRL_ACTION_PAUSE:
-		if (!gs_pauseTimer){
-			gs_pauseTimer = 10;
-			setSoundVolume(0); 
-		}
-		break;
-	case CTRL_ACTION_LOAD_DISK:
-		if (!gs_loadDiskTimer){
-			gs_loadDiskTimer = 50;
-		}
-		break;
-	case CTRL_ACTION_LOAD_TAPE:
-		if (!gs_loadTapeTimer){
-			gs_loadTapeTimer = 10;
-		}
-		break;
-	case CTRL_ACTION_KBDCMD_RUN:
-		if (!gs_kbdCmdRunTimer){
-			gs_kbdCmdRunTimer = 5;
-		}
-		break;
-	}
-}
-
-static void setSoundVolume(int vol)
-{
-	resources_set_int(VICE_RES_SOUND_VOLUME, vol); 
-}
-
-static void pauseEmulation(bool pause)
-{
-	if (pause){
-		if (ui_emulation_is_paused())
-			return;
-
-		ui_pause_emulation(1);
-		gs_view->displayPaused(1);		
-
-	}
-	else{
-		if (!ui_emulation_is_paused())
-			return;
-
-		ui_pause_emulation(0);
-		gs_view->displayPaused(0);	
-	}
 }
 
 const char* Controller::extractFile(const char *path)
@@ -1777,6 +1697,199 @@ const char* Controller::extractFile(const char *path)
   return game_path;
 }
 
+static void toggleJoystickPorts()
+{
+	if (g_joystickPort == 1){
+		g_joystickPort = 2;
+		resources_set_int(VICE_RES_JOY_PORT1_DEV, 0); // 0 = None  
+		resources_set_int(VICE_RES_JOY_PORT2_DEV, 1); // 1 = Joystick
+		gs_view->onSettingChanged(JOYSTICK_PORT,"Port 2","",0,0,1);
+	}
+	else{
+		g_joystickPort = 1;
+		resources_set_int(VICE_RES_JOY_PORT1_DEV, 1); 
+		resources_set_int(VICE_RES_JOY_PORT2_DEV, 0); 
+		gs_view->onSettingChanged(JOYSTICK_PORT,"Port 1","",0,0,1);
+	}
+}
+
+static void toggleWarpMode()
+{
+	int value;
+    if (resources_get_int(VICE_RES_WARP_MODE, &value) < 0)
+        return;
+
+	value = value? 0:1;
+	resources_set_int(VICE_RES_WARP_MODE, value);
+}
+
+static void	checkPendingActions()
+{	
+	// Check for pending actions. This function is called at the end of each screen frame. 
+	// That's every 20ms in PAL standard and every 16ms in NTSC standard.
+	
+	if (gs_showMenuTimer > 0){
+		if (--gs_showMenuTimer == 0)
+			video_psv_menu_show();
+	}
+	if (gs_pauseTimer > 0){
+		if (--gs_pauseTimer == 0){
+			ui_pause_emulation(1);
+			gs_view->displayPaused(1);
+			gs_view->updateView();
+		}
+	}
+	if (gs_loadDiskTimer > 0){
+		if (--gs_loadDiskTimer == 0){
+			if (!isCpuInRam()){ // We want to be in ROM.
+				char* cmd = lib_msprintf("LOAD\"%s\",8,1:\r", gs_loadProgramName.c_str());
+				kbdbuf_feed(cmd);
+				lib_free(cmd);
+				// Schedule screen scan command.
+				setPendingAction(CTRL_ACTION_SCAN_SCREEN_READY);
+			}
+		}
+	}
+	if (gs_loadTapeTimer > 0){
+		if (--gs_loadTapeTimer == 0){
+			if (!isCpuInRam()){ // We want to be in ROM.
+				//PSV_DEBUG("Type LOAD command...");
+				if (gs_loadProgramName.empty())
+					kbdbuf_feed("LOAD:\r");
+				else{
+					char* cmd = lib_msprintf("LOAD\"%s\":\r", gs_loadProgramName.c_str());
+					kbdbuf_feed(cmd);
+					lib_free(cmd);
+				}
+
+				datasette_control(DATASETTE_CONTROL_START);
+				setPendingAction(CTRL_ACTION_SCAN_SCREEN_READY);
+			}
+		}
+	}
+	if (gs_kbdCmdRunTimer > 0){
+		if (--gs_kbdCmdRunTimer == 0){
+			kbdbuf_feed("RUN\r");
+			// Update g_game_file so we can see the save states.
+			g_game_file = gs_loadImageName;
+		}
+	}
+	if (gs_scanScreenReadyTimer > 0){
+		if (--gs_scanScreenReadyTimer == 0){
+			int ret = scanScreen("READY.", CURSOR_WAIT_BLINK);
+
+			if (ret == 0){ // "READY." printed on screen
+				// Type "RUN" command.
+				//PSV_DEBUG("READY. printed on screen. Type RUN command...");
+				setPendingAction(CTRL_ACTION_KBDCMD_RUN);
+			}
+			else if (ret == 1){ // "READY." not printed on screen
+				//PSV_DEBUG("READY. not printed on screen!");
+			}
+			else if (ret == 2){ // Waiting for print
+				// The routine that is responsible for writing text on screen is in ROM.
+				if (!isCpuInRam()){
+					// Still in ROM. Keep waiting.
+					//PSV_DEBUG("Waiting for READY print...");
+					gs_scanScreenReadyTimer = 50;
+				}
+			}
+		}
+	}
+}
+
+static void setPendingAction(CTRL_ACTION action)
+{
+	// Set actions that for some reason need to be performed after a delay or during emulation.
+	
+	// Show menu and pause:
+	// Drain the audible sound buffer before the action. 
+	// This is done to prevent hearing remains of previous game audio when loading a new game.
+	// The trick here is to just put the volume down, wait about 200ms until there is
+	// silence in the buffer and then performing the action.
+	// TODO: Find a better way to empty the sound buffer.
+	//
+	// Load tape/disk:
+	// When loading files from peripherals we need to delay the load for the property changes
+	// to be in effect. For instance, if you change drive sound to enabled just before you load,
+	// you won't hear anything. Same thing when you change drive mode to true, the load will get stuck.
+	//
+	// Run commmand:
+	// The Run command must be fed to the keyboard queue after the loading commands have been
+	// printed to the screen. The command will stay in the queue until the ready message appears
+	// with the blinking cursor.
+	//
+	// Scan screen:
+	// Scan screen memory for a specific string. When attaching and loading game images from Devices-menu 
+	// we get into a lot of problems identifying savestate locations. Triggering savestate location after
+	// an attachement operation is problematic. If for instance you are playing Bruce Lee and then go to
+	// Devices-menu and attach Giana Sister image in a Drive or Datasette, your saves will go to Giana Sisters 
+	// saveslots. But more importantly if you play multidisk games your savestates will be scattered to several 
+	// disk images and they become unreachable from the main disk. The right way to go is to trigger the savestate
+	// location after the Autoload-operation. This way we will have a new location only when loading a new game.
+	// To achieve this we will have to know what's going on the screen. If we can identify a "READY." text
+	// followed by a blinking cursor we know that we have loaded a program to the computer.
+	
+	switch (action){
+
+	case CTRL_ACTION_SHOW_MENU:
+		if (!gs_showMenuTimer){
+			gs_showMenuTimer = 10;
+			setSoundVolume(0); 
+		}
+		break;
+	case CTRL_ACTION_PAUSE:
+		if (!gs_pauseTimer){
+			gs_pauseTimer = 10;
+			setSoundVolume(0); 
+		}
+		break;
+	case CTRL_ACTION_LOAD_DISK:
+		if (!gs_loadDiskTimer){
+			gs_loadDiskTimer = 50;
+		break;
+	case CTRL_ACTION_LOAD_TAPE:
+		if (!gs_loadTapeTimer){
+			gs_loadTapeTimer = 50;
+		}
+		break;
+	case CTRL_ACTION_KBDCMD_RUN:
+		if (!gs_kbdCmdRunTimer){
+			gs_kbdCmdRunTimer = 5;
+		}
+		break;
+	case CTRL_ACTION_SCAN_SCREEN_READY:
+		if (!gs_scanScreenReadyTimer){
+			gs_scanScreenReadyTimer = 50;
+		}
+		break;
+	}
+}
+
+static void setSoundVolume(int vol)
+{
+	resources_set_int(VICE_RES_SOUND_VOLUME, vol); 
+}
+
+static void pauseEmulation(bool pause)
+{
+	if (pause){
+		if (ui_emulation_is_paused())
+			return;
+
+		ui_pause_emulation(1);
+		gs_view->displayPaused(1);		
+
+	}
+	else{
+		if (!ui_emulation_is_paused())
+			return;
+
+		ui_pause_emulation(0);
+		gs_view->displayPaused(0);	
+	}
+}
+
 bool Controller::isZipFile(const char* fname)
 {
 	string extension;
@@ -1798,5 +1911,63 @@ bool Controller::isZipFile(const char* fname)
 	return ret;
 }
 
+static int scanScreen(const char *s, unsigned int blink_mode)
+{
+	// Scans the screen memory for the text in parameter s.
+	// blink_mode parameter specifies if s is followed by a new line and a blinking/flashing cursor.
+	// Return values:
+	// 0 = text in s was printed on screen.
+	// 1 = text in s was not printed on screen.
+	// 2 = waiting for a text to be printed.
+	
+	// C64 specific values. Use different for C128.
+	int blnsw = 0xcc;
+	int pnt   = 0xd1;
+	int pntr  = 0xd3;
+	int lnmx  = 0xd5;
+	
+    int screen_addr, line_length, cursor_column, addr, i;
 
+    screen_addr = (int)(mem_read((uint16_t)(pnt)) | (mem_read((uint16_t)(pnt + 1)) << 8));
+    cursor_column = (int)mem_read((uint16_t)(pntr));
 
+    line_length = (int)(lnmx < 0 ? -lnmx : mem_read((uint16_t)(lnmx)) + 1);
+
+    if (!kbdbuf_is_empty()) {
+        return 2;
+    }
+
+    if (blink_mode == CURSOR_WAIT_BLINK && cursor_column != 0) {
+        return 2;
+    }
+
+    if (blink_mode == CURSOR_WAIT_BLINK && blnsw != 0 && mem_read(blnsw) != 0) {
+        return 2;
+    }
+
+    if (blink_mode == CURSOR_WAIT_BLINK) {
+        addr = screen_addr - line_length;
+    } else {
+        addr = screen_addr;
+    }
+
+    for (i = 0; s[i] != '\0'; i++) {
+        if (mem_read((uint16_t)(addr + i)) != s[i] % 64) {
+            if (mem_read((uint16_t)(addr + i)) != (uint8_t)32) {
+                return 1; // NO
+            }
+            return 2; // NOT YET
+        }
+    }
+    return 0; // YES
+}
+
+static bool isCpuInRam()
+{
+	// Checks if CPU is currently running in RAM area.
+	if (machine_addr_in_ram(reg_pc)) {
+		return true;
+	}
+  
+	return false;
+}

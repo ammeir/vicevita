@@ -175,7 +175,7 @@ void Peripherals::buttonReleased(int button)
 			break;
 		}
 	case SCE_CTRL_CROSS:
-		// Load program
+		// Load image
 		{
 			if (!isActionAllowed(PERIF_ACTION_LOAD))
 				return;
@@ -188,11 +188,11 @@ void Peripherals::buttonReleased(int button)
 			}
 			else if (entry->id == DRIVE8){
 				int index = getValueIndex(entry->value.c_str(), entry->values, entry->values_size);
-				ret = m_controller->loadFile(DISK_LOAD, entry->value2.c_str(), index+1, entry->value.c_str());
+				ret = m_controller->loadFile(DISK_LOAD, entry->value2.c_str(), entry->value.c_str(), index+1, entry->value.c_str());
 			}
 			else if (entry->id == DATASETTE){
 				int index = getValueIndex(entry->value.c_str(), entry->values, entry->values_size);
-				ret = m_controller->loadFile(TAPE_LOAD, entry->value2.c_str(), index+1, entry->value.c_str());
+				ret = m_controller->loadFile(TAPE_LOAD, entry->value2.c_str(), entry->value.c_str(), index, entry->value.c_str());
 			}
 
 			if (ret < 0){
@@ -201,7 +201,6 @@ void Peripherals::buttonReleased(int button)
 				break;
 			}
 
-			g_game_file = entry->value2;
 			Navigator::m_running = false; 
 			m_exitCode = EXIT_MENU; // Return to the game
 		}
@@ -687,9 +686,6 @@ void Peripherals::attachImage(int peripheral, const char* image)
 	gtShowMsgBoxNoBtn("Attaching...");
 	if (m_controller->attachImage(peripheral, image, gs_list[index].values, gs_list[index].values_size) < 0)
 		return;
-	
-	// Game can also be loaded manually from basic. Update g_game_file so we can see the save states.
-	g_game_file = getFileNameFromPath(image);
 }
 
 void Peripherals::detachImage(int peripheral)
