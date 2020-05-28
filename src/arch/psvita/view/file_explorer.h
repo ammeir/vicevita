@@ -73,7 +73,7 @@ private:
 	void				render();
 	void				scrollTo(int hlIndex, int btIndex, float sbPosY, bool showScroll);
 	bool				isFileAccepted(const char* fname);
-	void				setFilter(const char** filter, int size);
+	void				setFilter(const char** filter);
 	void				strToUpperCase(string& str);
 	
 	// Navigator interface implementations
@@ -85,7 +85,7 @@ private:
 public:
 						FileExplorer();
 						~FileExplorer();
-	void				init(const char* path, int hlIndex = 0, int btIndex = 0, float sbPosY = 0, const char** filter = NULL, int fsize = 0);
+	void				init(const char* path, int hlIndex = 0, int btIndex = 0, float sbPosY = 0, const char** filter = NULL);
 	string				doModal();
 	int					readDirContent(const char* path);
 	void				addParentDirectory();

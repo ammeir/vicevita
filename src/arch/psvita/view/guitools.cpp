@@ -30,10 +30,10 @@
 #include <vita2d.h>
 
 
-string gtShowFileBrowser(const char* path, int hlIndex, int btIndex, float sbPosY, const char** filter, int fsize)
+string gtShowFileBrowser(const char* path, int hlIndex, int btIndex, float sbPosY, const char** filter)
 {
 	FileExplorer fileExp;
-	fileExp.init(path, hlIndex, btIndex, sbPosY, filter, fsize);
+	fileExp.init(path, hlIndex, btIndex, sbPosY, filter);
 	return  fileExp.doModal();
 }
 

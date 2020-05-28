@@ -490,29 +490,33 @@ string Peripherals::showValuesListBox(const char** values, int size)
 
 string Peripherals::showFileBrowser(int peripheral)
 {
-	// Remember last visited folder.
+	// Remember last visited folder and navigation spot.
 	static string last_game_dir = GAME_DIR;
+	static int last_highlight_index = 0;
+	static int last_bordertop_index = 0;
+	static float last_scrollbar_ypos = 0;
 
-	static const char* filterDiskImages[] = {"D64","D71","D80","D81","D82","G64","G41","X64","ZIP",NULL};
-	static const char* filterTapeImages[] = {"T64","TAP","ZIP",NULL};
-	static const char* filterCartImages[] = {"CRT","ZIP",NULL};
-	
-	const char** filter;
-
-	switch (peripheral){
-	case DRIVE8:
-		filter = filterDiskImages; break;
-	case DATASETTE:
-		filter = filterTapeImages; break;
-	case CARTRIDGE:
-		filter = filterCartImages; break;
-	}
+	static const char* filter[] = {
+	   "CRT",														// Cartridge image
+       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
+       "T64","TAP",													// Tape image
+	   "PRG","P00",													// Program image
+	   "ZIP",														// Archive file
+	   NULL};					
 
 	FileExplorer fileExp;
-	fileExp.init(last_game_dir.c_str(),0,0,0,filter);
+	fileExp.init(last_game_dir.c_str(), 
+				last_highlight_index, 
+				last_bordertop_index, 
+				last_scrollbar_ypos,
+				filter);
+
 	string selection = fileExp.doModal();
 	
 	last_game_dir = fileExp.getDir();
+	last_highlight_index = fileExp.getHighlightIndex();
+	last_bordertop_index = fileExp.getBorderTopIndex();
+	last_scrollbar_ypos = fileExp.getScrollBarPosY();
 
 	return selection;
 }

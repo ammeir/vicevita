@@ -83,7 +83,7 @@ FileExplorer::~FileExplorer()
 	}
 }
 
-void FileExplorer::init(const char* path, int hlIndex, int btIndex, float sbPosY, const char** filter, int fsize)
+void FileExplorer::init(const char* path, int hlIndex, int btIndex, float sbPosY, const char** filter)
 {
 	m_path = path;
 	m_highlight = 0;
@@ -92,7 +92,7 @@ void FileExplorer::init(const char* path, int hlIndex, int btIndex, float sbPosY
 	m_file_icon = vita2d_load_PNG_buffer(img_file_icon);
 	m_folder_icon = vita2d_load_PNG_buffer(img_folder_icon);
 	
-	setFilter(filter, fsize);
+	setFilter(filter);
 	readDirContent(path);
 	addParentDirectory();
 	sortDirContent();
@@ -559,10 +559,20 @@ bool FileExplorer::isFileAccepted(const char* fname)
 	return false;
 }
 
-void FileExplorer::setFilter(const char** filter, int size)
+void FileExplorer::setFilter(const char** filter)
 {
-	if (!filter || !size)
+	// Filter array must be NULL terminated.
+
+	if (!filter)
 		return;
+
+	int size = 0;
+	const char** p = filter;
+	
+	while(*p){
+		size++;
+		p++;
+	}
 
 	m_filter = new char*[size+1]; // One extra for null termination
 	for (int i=0; i<size; ++i){
