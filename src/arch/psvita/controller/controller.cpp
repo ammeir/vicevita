@@ -357,7 +357,7 @@ int Controller::loadFile(load_type_e load_type, const char* file, const char* pr
 	case CART_LOAD:
 		if (cartridge_attach_image(CARTRIDGE_CRT, file) < 0)
 			return -1;
-		g_game_file = file;
+		//g_game_file = file;
 		pauseEmulation(false);
 		break;
 	case DISK_LOAD:
@@ -1772,6 +1772,8 @@ static void	checkPendingActions()
 			kbdbuf_feed("RUN\r");
 			// Update g_game_file so we can see the save states.
 			g_game_file = gs_loadImageName;
+			// Load game specific settings.
+			gs_view->updateSettings();
 		}
 	}
 	if (gs_scanScreenReadyTimer > 0){

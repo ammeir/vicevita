@@ -186,6 +186,11 @@ void Peripherals::buttonReleased(int button)
 			int ret = 0;
 			if (entry->id == CARTRIDGE){
 				ret = m_controller->loadFile(CART_LOAD, entry->value2.c_str());
+				if (ret == 0){
+					g_game_file = entry->value2.c_str();
+					// Load game specific settings.
+					m_view->updateSettings();
+				}
 			}
 			else if (entry->id == DRIVE8){
 				int index = getValueIndex(entry->value.c_str(), entry->values, entry->values_size);
@@ -197,7 +202,7 @@ void Peripherals::buttonReleased(int button)
 			}
 
 			if (ret < 0){
-				gtShowMsgBoxOk("Could not start program");
+				gtShowMsgBoxOk("Could not load image!");
 				show();
 				break;
 			}
