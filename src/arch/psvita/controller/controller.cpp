@@ -186,8 +186,10 @@ extern "C" void PSV_ScanControls()
 			}
 			break;
 		case 137: // Reset computer
-			machine_trigger_reset(gs_machineResetMode);
-			gs_view->notifyReset();
+			if (!ui_emulation_is_paused()){ // Reseting in pause state causes freeze.
+				machine_trigger_reset(gs_machineResetMode);
+				gs_view->notifyReset();
+			}
 			break;
 		default:
 			break;
