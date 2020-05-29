@@ -118,7 +118,6 @@ private:
 	void			createAppDirs();
 	void			createDefConfFile();
 	void			renderKeyboard();
-	void			updateSettings();
 	void			showSpeedStats();
 	void			showDatasetteStats();
 	void			loadResources();
@@ -152,6 +151,7 @@ public:
 	void			setFPSCount(int fps, int percent, int warp_flag);
 	void			setTapeCounter(int count);
 	void			setTapeControl(int status);
+	void			setDriveStatus(int drive, int led);
 	int				showMessage(const char* msg, int msg_type);
 	void			displayPaused(int);
 	void			toggleKeyboardOnView();
@@ -166,6 +166,7 @@ public:
 	void			getSettingValues(int key, const char** value, const char** value2, const char*** values, int* size);
 	int				convertRGBToPixel(uint8_t red, uint8_t green, uint8_t blue);
 	bool			pendingRedraw();
+	void			updateSettings();
 };
 
 
