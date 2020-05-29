@@ -349,6 +349,11 @@ void View::setTapeControl(int control)
 	m_statusbar->setTapeControl(control);
 }
 
+void View::setDriveStatus(int drive, int led)
+{
+	m_statusbar->setDriveLed(drive, led);
+}
+
 int View::showMessage(const char* msg, int msg_type)
 {
 	int ret = 0;
@@ -464,21 +469,21 @@ void View::showStartGame()
 	static int last_bordertop_index = 0;
 	static float last_scrollbar_ypos = 0;
 	
-	static int filter_list_size = 14;
+	//static int filter_list_size = 14;
 	static const char* filter[] = {
 	   "CRT",														// Cartridge image
        "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
        "T64","TAP",													// Tape image
 	   "PRG","P00",													// Program image
-	   "ZIP"};														// Archive file
+	   "ZIP",														// Archive file
+	   NULL};														
 
 	FileExplorer fileExp;
 	fileExp.init(last_game_dir.c_str(), 
 				last_highlight_index, 
 				last_bordertop_index, 
 				last_scrollbar_ypos,
-				filter,
-				filter_list_size);
+				filter);
 	
 	string selection;
 	int ret;
@@ -548,7 +553,7 @@ void View::showAbout()
 
 void View::updateSettings()
 {
-	// Update key mappings and settings.
+	// Load key mappings and settings from a configuration file.
 
 	if (!m_controls || !m_settings)
 		return;
