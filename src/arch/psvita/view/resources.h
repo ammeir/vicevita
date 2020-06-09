@@ -100,6 +100,22 @@ extern char img_btn_navigate_up_down[];
 extern char img_btn_navigate_up_down_left[];
 extern char img_btn_navigate_up_down_x[];
 
+// Statusbar 
+extern char img_statusbar[];
+extern char img_led_off[];
+extern char img_led_on_green[];
+extern char img_led_on_red[];
+extern char img_tape_stop_motor_on[];
+extern char img_tape_start_motor_on[];
+extern char img_tape_start_motor_off[];
+extern char img_tape_rewind_motor_on[];
+extern char img_tape_rewind_motor_off[];
+extern char img_tape_forward_motor_on[];
+extern char img_tape_forward_motor_off[];
+extern char img_tape_record_motor_on[];
+extern char img_tape_record_motor_off[];
+
+
 
 
 
