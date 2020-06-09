@@ -163,7 +163,12 @@ void ui_display_drive_current_image(unsigned int drive_number, const char *image
 
 void ui_display_tape_control_status(int control)
 {
-	PSV_NotifyTapeControl(control);
+	static int tape_control = 0;
+
+	if (tape_control != control)
+		PSV_NotifyTapeControl(control);
+
+	tape_control = control;
 }
 
 void ui_display_tape_counter(int counter)
@@ -175,7 +180,6 @@ void ui_display_tape_counter(int counter)
     }
 
     tape_counter = counter;
-	
 }
 
 void ui_display_tape_current_image(const char *image)

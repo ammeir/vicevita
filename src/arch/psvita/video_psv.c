@@ -201,16 +201,6 @@ void video_canvas_refresh(struct video_canvas_s *canvas,
 	PSV_UpdateView();
 }
 
-void ui_display_speed(float percent, float framerate, int warp_flag)
-{
-	if (last_framerate != framerate || last_percent != percent || last_warp_flag != warp_flag)
-		PSV_NotifyFPS((int)framerate, percent, warp_flag);
-
-	last_framerate = framerate;
-	last_percent = percent;
-	last_warp_flag = warp_flag;
-}
-
 int video_init()
 {
 	return 0;
@@ -234,14 +224,31 @@ void video_arch_resources_shutdown()
 {
 }
 
-void ui_display_drive_led(int drive_number, unsigned int led_pwm1,
-                          unsigned int led_pwm2)
+void ui_display_speed(float percent, float framerate, int warp_flag)
 {
-	drive_led_on = (led_pwm1 > 100);
+	if (last_framerate != framerate || last_percent != percent || last_warp_flag != warp_flag)
+		PSV_NotifyFPS((int)framerate, percent, warp_flag);
+
+	last_framerate = framerate;
+	last_percent = percent;
+	last_warp_flag = warp_flag;
+}
+
+void ui_display_drive_led(int drive_number, unsigned int led_pwm1, unsigned int led_pwm2)
+{
+	int led_status = (led_pwm1 > 100);
+
+	if (drive_led_on != led_status)
+		PSV_NotifyDriveStatus(drive_number + 8, led_status);
+
+	drive_led_on = led_status;
 }
 
 void ui_display_tape_motor_status(int motor)
 {
+	if (tape_led_on != motor)
+		PSV_NotifyTapeMotorStatus(motor);
+
 	tape_led_on = motor;
 }
 

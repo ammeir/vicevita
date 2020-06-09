@@ -191,6 +191,9 @@ extern "C" void PSV_ScanControls()
 				gs_view->notifyReset();
 			}
 			break;
+		case 138: // Show/hide status bar
+			gs_view->toggleStatusbarOnView();
+			break;
 		default:
 			break;
 		}
@@ -266,12 +269,17 @@ extern "C" void	PSV_NotifyTapeControl(int control)
 
 extern "C" void	PSV_NotifyDriveStatus(int drive, int led)
 {
-	//gs_view->setDriveStatus(drive, led);
+	gs_view->setDriveStatus(drive, led);
 }
 
 extern "C" void	PSV_NotifyDriveContent(int drive, const char* image)
 {
 	//gs_view->notifyDriveContent(drive, image);
+}
+
+extern "C" void PSV_NotifyTapeMotorStatus(int motor)
+{
+	gs_view->setTapeMotorStatus(motor);
 }
 
 extern "C" int	PSV_ShowMessage(const char* msg, int msg_type)
@@ -1738,6 +1746,7 @@ static void	checkPendingActions()
 		if (--gs_pauseTimer == 0){
 			ui_pause_emulation(1);
 			gs_view->displayPaused(1);
+			gs_view->setFPSCount(0,0,0);
 			gs_view->updateView();
 		}
 	}

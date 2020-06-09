@@ -89,7 +89,10 @@ private:
 	bool			m_keyboardOnView;
 	bool			m_uiActive;
 	bool			m_inGame;
-	int				m_statusbarMask;
+	int				m_showStatusbar;
+	bool			m_statusbarMask;
+	bool			m_displayPause;
+	bool			m_pendingDraw;
 	
 	// x,y positions of different views
 	float			m_posXNormalView;
@@ -152,8 +155,10 @@ public:
 	void			setTapeCounter(int count);
 	void			setTapeControl(int status);
 	void			setDriveStatus(int drive, int led);
+	void			setTapeMotorStatus(int motor);
 	int				showMessage(const char* msg, int msg_type);
 	void			displayPaused(int);
+	void			toggleStatusbarOnView();
 	void			toggleKeyboardOnView();
 	bool			isKeyboardOnView();
 	bool			isBorderlessView();

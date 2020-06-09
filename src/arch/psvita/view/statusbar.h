@@ -25,41 +25,56 @@
 
 #include <string>
 
-#define STATUSBAR_SPEED 1
-#define STATUSBAR_TAPE  2
-#define STATUSBAR_PAUSE 4
-
+#define IMG_SB_STATUSBAR               0
+#define IMG_SB_LED_ON_GREEN            1
+#define IMG_SB_LED_ON_RED              2
+#define IMG_SB_LED_OFF                 3
+#define IMG_SB_TAPE_STOP_MOTOR_ON      4
+#define IMG_SB_TAPE_START_MOTOR_ON     5 
+#define IMG_SB_TAPE_START_MOTOR_OFF    6
+#define IMG_SB_TAPE_FORWARD_MOTOR_ON   7
+#define IMG_SB_TAPE_FORWARD_MOTOR_OFF  8
+#define IMG_SB_TAPE_REWIND_MOTOR_ON    9
+#define IMG_SB_TAPE_REWIND_MOTOR_OFF  10
+#define IMG_SB_TAPE_RECORD_MOTOR_ON   11
+#define IMG_SB_TAPE_RECORD_MOTOR_OFF  12
+#define IMG_SB_NULL					  13
 
 using std::string;
 
 class View;
+class vita2d_texture;
 class Statusbar
 {
 
 private:
-	View*	m_view;
-	int		m_fps;
-	int		m_cpuPercentage;
-	int		m_warpFlag;
-	string	m_tapeCounter;
-	string	m_tapeControl;
-	int		m_displaySpeedData;
-	int		m_displayTapeData;
-	int		m_displayPause;
-	bool	m_updated;
+	View*			m_view;
+	vita2d_texture* m_bitmaps[16];
+	vita2d_texture* m_tapeControlTex;
+	int				m_warpFlag;
+	int				m_tapeControl;
+	int				m_tapeMotor;
+	char			m_fps[8];
+	char			m_cpu[8];
+	char			m_counter[8];
+	char			m_driveLedMask;
+	bool			m_updated;
+	
+	void			loadResources();
 
 public:
-			Statusbar();
-			~Statusbar();
+					Statusbar();
+					~Statusbar();
 
-	void	init(View*);
-	void	show();
-	void	render();
-	void	showStatus(int type, int val);
-	void	setSpeedData(int fps, int percent, int warp_flag);
-	void	setTapeCounter(int counter);
-	void	setTapeControl(int control);
-	bool	isUpdated();
+	void			init(View*);
+	void			show();
+	int				render();
+	void			setSpeedData(int fps, int percent, int warp_flag);
+	void			setTapeCounter(int counter);
+	void			setTapeControl(int control);
+	void			setDriveLed(int drive, int led);
+	void			setTapeMotor(int motor);
+	bool			isUpdated();
 };
 
 #endif

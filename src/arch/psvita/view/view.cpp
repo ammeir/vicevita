@@ -75,7 +75,10 @@ View::View()
 	m_scaleXNormalView  = 1;
 	m_scaleYNormalView  = 1;
 	m_statusbarMask		= 0;
+	m_showStatusbar		= false;
 	m_inGame			= false;
+	m_pendingDraw		= false;
+	m_displayPause		= false;
 }
 
 View::~View()
@@ -238,6 +241,7 @@ void View::updateView()
 
 	if (!m_keyboardOnView){ 
 		// Normal view.
+
 		vita2d_draw_texture_part_scale(
 			m_view_tex, 
 			m_posXNormalView, 
@@ -271,8 +275,14 @@ void View::updateView()
 		m_keyboard->render();
 	}
 
-	if (m_statusbarMask)
+	
+	if (m_showStatusbar){
 		m_statusbar->render();
+	}
+
+	if (m_displayPause){
+		txtr_draw_text(870, 534, YELLOW, "Paused");
+	}
 
     vita2d_end_drawing();
     vita2d_swap_buffers();
@@ -354,6 +364,11 @@ void View::setDriveStatus(int drive, int led)
 	m_statusbar->setDriveLed(drive, led);
 }
 
+void View::setTapeMotorStatus(int motor)
+{
+	m_statusbar->setTapeMotor(motor);
+}
+
 int View::showMessage(const char* msg, int msg_type)
 {
 	int ret = 0;
@@ -367,12 +382,16 @@ int View::showMessage(const char* msg, int msg_type)
 
 void View::displayPaused(int val)
 {
-	if (val) 
-		m_statusbarMask |= STATUSBAR_PAUSE;
-	else 
-		m_statusbarMask &= ~STATUSBAR_PAUSE;
+	m_displayPause = val? true: false;
+}
 
-	m_statusbar->showStatus(STATUSBAR_PAUSE, val);
+void View::toggleStatusbarOnView()
+{
+	m_showStatusbar = !m_showStatusbar;
+	changeAspectRatio(m_aspectRatio);
+
+	if (!m_showStatusbar)
+		m_pendingDraw = true; // Force view update incase we are in still image
 }
 
 void View::toggleKeyboardOnView()
@@ -578,19 +597,19 @@ void View::changeAspectRatio(AspectRatio value)
 		m_posXNormalView = 0;
 		m_posYNormalView = 0;
 		m_scaleXNormalView = (float)960/m_viewport.width;
-		m_scaleYNormalView = (float)544/m_viewport.height;
+		m_scaleYNormalView = (!m_showStatusbar)? (float)544/m_viewport.height: (float)513/m_viewport.height;
 		break;
 	case VIEW_ASPECT_RATIO_4_3:
 		m_aspectRatio = value;
 		m_posXNormalView = (960-m_viewport.width*2)/2;
 		m_posYNormalView = (544-m_viewport.height*2)/2;
 		m_scaleXNormalView = 2;
-		m_scaleYNormalView = 2;	
+		m_scaleYNormalView = (!m_showStatusbar)? 2: (float)513/272;;	
 		break;
 	case VIEW_ASPECT_RATIO_4_3_MAX:
 		m_aspectRatio = value;
 		m_scaleXNormalView = (float)544/m_viewport.height;
-		m_scaleYNormalView = m_scaleXNormalView;
+		m_scaleYNormalView = (!m_showStatusbar)? m_scaleXNormalView: (float)513/m_viewport.height;
 		m_posXNormalView = (960-(m_viewport.width*m_scaleXNormalView))/2;
 		m_posYNormalView = 0;
 		break;
@@ -728,22 +747,6 @@ void View::setProperty(int key, const char* value)
 	case HOST_CPU_SPEED:
 		setHostCpuFrequency(value);
 		break;
-	case FPS_COUNTER:
-		{
-		int i = !strcmp(value, "Show")? 1:0;
-		if (i) m_statusbarMask |= STATUSBAR_SPEED;
-		else m_statusbarMask &= ~STATUSBAR_SPEED;
-		m_statusbar->showStatus(STATUSBAR_SPEED, i);
-		break;
-		}
-	case DATASETTE_COUNTER:
-		{
-		int i = !strcmp(value, "Show")? 1:0;
-		if (i) m_statusbarMask |= STATUSBAR_TAPE;
-		else m_statusbarMask &= ~STATUSBAR_TAPE;
-		m_statusbar->showStatus(STATUSBAR_TAPE, i);
-		break;
-		}
 	}
 }
 
@@ -778,10 +781,15 @@ bool View::pendingRedraw()
 {
 	// Return true if the keyboard was pressed or statusbar was changed.
 	
+	if (m_pendingDraw){
+		m_pendingDraw = false;
+		return true;
+	}
+
 	if (m_keyboard->isUpdated())
 		return true;
-
-	if (m_statusbarMask && m_statusbar->isUpdated())
+	
+	if (m_showStatusbar && m_statusbar->isUpdated())
 		return true;
 
 	return false;

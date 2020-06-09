@@ -40,6 +40,7 @@ void		PSV_NotifyTapeCounter(int count);
 void		PSV_NotifyTapeControl(int control);
 void		PSV_NotifyDriveStatus(int drive, int led);
 void		PSV_NotifyDriveContent(int drive, const char* image);
+void		PSV_NotifyTapeMotorStatus(int motor);
 void		PSV_NotifyReset();
 int			PSV_ShowMessage(const char* msg, int msg_type);
 #else
