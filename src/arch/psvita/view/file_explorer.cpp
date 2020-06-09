@@ -21,6 +21,7 @@
 */
 
 #include "file_explorer.h"
+#include "view.h"
 #include "scroll_bar.h"
 #include "texter.h"
 #include "resources.h"
@@ -44,8 +45,6 @@
 #define SCROLL_BAR_HEIGHT (MAX_ENTRIES * FONT_Y_SPACE)
 #define SCROLL_BAR_MIN_HEIGHT 4
 
-
-extern vector<vita2d_texture*> g_instructionBitmaps;
  
 static bool compareDirEntries(const DirEntry& entry1, const DirEntry& entry2) 
 {
