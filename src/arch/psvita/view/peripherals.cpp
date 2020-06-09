@@ -66,12 +66,11 @@ typedef struct
 static const char* gs_driveEmulationValues[]	      = {"Fast","True"};
 static const char* gs_driveSoundEmulationValues[]     = {"Enabled","Disabled"};
 static const char* gs_datasetteControlValues[]	      = {"Stop","Play","Forward","Rewind","Record","Reset","Reset counter"};
-static const char* gs_datasetteCounterValues[]	      = {"Show","Hide"};
 static const char* gs_datasetteResetWithCPUValues[]	  = {"Enabled","Disabled"};
 static const char* gs_cartResetOnChangeValues[]	      = {"Enabled","Disabled"};
 
 
-static int gs_peripheralEntriesSize = 12;
+static int gs_peripheralEntriesSize = 11;
 static PeripheralEntry gs_list[] = 
 {
 	{"Drive 8","","","",0,0,1}, /* Header line */
@@ -81,7 +80,6 @@ static PeripheralEntry gs_list[] =
 	{"Datasette","","","",0,0,1},
 	{"Content",       "Datasette",            "Empty","",0,0,0,ST_MODEL,DATASETTE,0},
 	{"Control",       "DatasetteControl",     "Stop","",gs_datasetteControlValues,7,0,ST_MODEL,DATASETTE_CONTROL,0},
-	{"Counter",       "DatasetteCounter",     "Hide","",gs_datasetteCounterValues,2,0,ST_VIEW,DATASETTE_COUNTER,0},
 	{"Reset with CPU","DatasetteResetWithCPU","Enabled","",gs_datasetteResetWithCPUValues,2,0,ST_MODEL,DATASETTE_RESET_WITH_CPU,0},
 	{"Cartridge","","","",0,0,1},
 	{"Content",        "Cartridge",     "Empty","",0,0,0,ST_MODEL,CARTRIDGE,0},
@@ -490,7 +488,7 @@ string Peripherals::showValuesListBox(const char** values, int size)
 	// Calculate x coordinate, y is already available.
 	int x = m_posXValue + txtr_get_text_width(gs_list[m_highlight].value.c_str(), 24) + 35;
 
-	return gtShowListBox(x, m_highligtBarYpos-1, 0, 0, values, size, this);
+	return gtShowListBox(x, m_highligtBarYpos-1, 0, 0, values, size, this, gs_list[m_highlight].value.c_str());
 }
 
 string Peripherals::showFileBrowser(int peripheral)

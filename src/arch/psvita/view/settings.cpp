@@ -76,11 +76,10 @@ static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen"};
 static const char* gs_autofireSpeedValues[]		= {"Slow","Medium slow","Medium","Medium fast","Fast"};
 static const char* gs_cpuSpeedValues[]			= {"100%","125%","150%","175%","200%"};
 static const char* gs_hostCpuSpeedValues[]		= {"333 MHz","444 MHz"};
-static const char* gs_fpsCounterValues[]		= {"Show","Hide"};
 static const char* gs_audioPlaybackValues[]		= {"Enabled","Disabled"};
 static const char* gs_machineResetValues[]		= {"Hard","Soft"};
 
-static int gs_settingsEntriesSize = 22;
+static int gs_settingsEntriesSize = 21;
 static SettingsEntry gs_list[] = 
 {
 	{"Machine","","","",0,0,1}, /* Header line */
@@ -100,7 +99,6 @@ static SettingsEntry gs_list[] =
 	{"Performance","","","",0,0,1},
 	{"CPU speed",     "CPUSpeed",    "100%","",gs_cpuSpeedValues,5,0,ST_MODEL,CPU_SPEED,0},
 	{"Host CPU speed","HostCPUSpeed","333 MHz","",gs_hostCpuSpeedValues,2,0,ST_VIEW,HOST_CPU_SPEED,0},
-	{"FPS counter",   "FPSCounter",  "Hide","",gs_fpsCounterValues,2,0,ST_VIEW,FPS_COUNTER,0},
 	{"Audio","","","",0,0,1},
 	{"Playback","Sound","Enabled","",gs_audioPlaybackValues,2,0,ST_MODEL,SOUND,0},
 	{"Other","","","",0,0,1},
@@ -657,8 +655,6 @@ void Settings::createConfFile(const char* file)
 		strcat(buf, "CPUSpeed=100");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "HostCPUSpeed=333 MHz");
-		strcat(buf, "\x0D\x0A");
-		strcat(buf, "FPSCounter=Hide");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "Sound=Enabled");
 		strcat(buf, "\x0D\x0A");
