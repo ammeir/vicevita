@@ -46,13 +46,13 @@
 
 vector<BitmapInfo>	g_controlBitmaps;
 static int gs_entriesSize = 23;
-static int gs_mapValuesSize = 78;
+static int gs_mapValuesSize = 79;
 
 // All control mapping values.
 // If you add more values, remember to update gs_mapValuesSize, updateKeyMapTable() and PSV_ScanControls()
 static const char* gs_valLookup[] = 
 {
-	"None","Main menu","Keyboard","Pause","Reset","Swap joysticks","Warp mode","Joystick up","Joystick down","Joystick left",
+	"None","Main menu","Keyboard","Status bar","Pause","Reset","Swap joysticks","Warp mode","Joystick up","Joystick down","Joystick left",
 	"Joystick right","Joystick fire","Joystick autofire","Cursor left/right", "Cursor up/down","Space","Return","F1","F3","F5",
 	"F7","Clr/Home","Inst/Del","Ctrl","Restore","Run/Stop","C=","L Shift","R Shift","+","-","Pound","@","*",
 	"Arrow up","[","]","=","<",">","?","Arrow left","1","2","3","4","5","6","7","8","9","0","A","B","C","D",
@@ -62,17 +62,17 @@ static const char* gs_valLookup[] =
 // Corresponding id numbers
 static int gs_idLookup[] = 
 {
-	125,126,127,128,137,129,130,		// None,Main Menu,Keyboard,Pause,Reset,Swap joysticks,Warp mode,
-	131,132,133,134,135,136,			// Joystick up,Joystick down,Joystick left,Joystick right,Joystick fire,Joystick autofire,
+	125,126,127,138,128,137,129,130,    // None,Main Menu,Keyboard,Status bar,Pause,Reset,Swap joysticks,Warp mode,
+	131,132,133,134,135,136,            // Joystick up,Joystick down,Joystick left,Joystick right,Joystick fire,Joystick autofire,
 	2,7,116,1,4,5,6,3,					// C_L/R,C_U/D,SPACE,RETURN,F1,F3,F5,F7
-	99,0,114,56,119,117,23,100,			// HOME,DEL,CTRL,RESTORE,R/S,C=,S_L,S_R
-	80,83,96,86,97,102,85,98,			// +,-,POUND,@,*,A_UP,:,;
-	101,87,84,103,113,112,115,16,		// =,<,>,?,A_LFT,1,2,3
-	19,32,35,48,51,64,67,18,			// 4,5,6,7,8,9,0,A
-	52,36,34,22,37,50,53,65,			// B,C,D,E,F,G,H,I
-	66,69,82,68,71,70,81,118,			// J,K,L,M,N,O,P,Q
-	33,21,38,54,55,17,39,49,			// R,S,T,U,V,W,X,Y,
-	20,0,0,0,0,0						// Z
+	99,0,114,56,119,117,23,100,         // HOME,DEL,CTRL,RESTORE,R/S,C=,S_L,S_R
+	80,83,96,86,97,102,85,98,           // +,-,POUND,@,*,A_UP,:,;
+	101,87,84,103,113,112,115,16,       // =,<,>,?,A_LFT,1,2,3
+	19,32,35,48,51,64,67,18,            // 4,5,6,7,8,9,0,A
+	52,36,34,22,37,50,53,65,            // B,C,D,E,F,G,H,I
+	66,69,82,68,71,70,81,118,           // J,K,L,M,N,O,P,Q
+	33,21,38,54,55,17,39,49,            // R,S,T,U,V,W,X,Y,
+	20,0,0,0,0,0                        // Z
 };
 
 static const char* gs_defMapValues[] = 
