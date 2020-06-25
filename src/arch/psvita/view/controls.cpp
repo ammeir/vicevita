@@ -435,7 +435,7 @@ void Controls::fillMappingValuesFile(const char* ini_file)
 	char keymaps_value[128] = {0};
 	int item_index = 0;
 
-	ini_parser.getKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
+	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
 
 	char* token = strtok(keymaps_value, ",");
 
@@ -446,9 +446,13 @@ void Controls::fillMappingValuesFile(const char* ini_file)
 		int iToken = atoi(token);
 		const char* entry = midToName(iToken);
 		
-		if (item_index < m_list.size())
+		if (!entry)
+			entry = midToName(125); // Set to 'None' if value is unknown.
+		
+		if (item_index < m_list.size()){
 			m_list[item_index++] = entry;
-
+		}
+		
 		token = strtok(NULL, ",");
 	}
 
@@ -587,7 +591,7 @@ void Controls::saveKeyMapTable(const char* file_path)
 			keymaps_value.append(",");
 	}
 
-	ini_parser.setKeyValue(NULL, "Controls", "Keymaps", keymaps_value.c_str());
+	ini_parser.setKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value.c_str());
 	ini_parser.saveToFile(file_path);
 }
 
@@ -615,7 +619,7 @@ bool Controls::keyMapsValueExist(const char* ini_file)
 	char keymaps_value[128] = {0};
 	int token_count = 0;
 	
-	ini_parser.getKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
+	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
 	
 	char* token = strtok(keymaps_value, ",");
 
@@ -747,7 +751,7 @@ string Controls::toString()
 	string ret;
 	char buf[16];
 
-	ret.append("Keymaps");
+	ret.append(INI_FILE_KEY_KEYMAPS);
 	ret.append(SNAP_MOD_DELIM_FIELD);
 					
 	// Keymap table to string.

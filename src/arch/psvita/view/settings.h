@@ -97,7 +97,6 @@ private:
 	bool					fileExist(const char* file_name);
 	string					getDirOfFile(const char* file);
 	string					getConfFileDesc();
-	void					prepareConfFile(const char* file);
 
 public:
 							Settings();

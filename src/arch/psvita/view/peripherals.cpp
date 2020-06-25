@@ -66,7 +66,8 @@ typedef struct
 	int				isHeader;
 	int				type;
 	int				id;
-	handler_func_t	handler; // Handler function when settings change
+	handler_func_t	handler; // Handler function when settings change.
+	int				isSetting; // Save value to configuration file.
 } PeripheralEntry;
 
 static const char* gs_driveIDValues[]                 = {"8","9","10","11"};
@@ -82,18 +83,18 @@ static int gs_peripheralEntriesSize = 13;
 static PeripheralEntry gs_list[] = 
 {
 	{"Drive","","","",0,0,1}, /* Header line */
-	{"Number", "DriveNumber",        "8","",gs_driveIDValues,4,0,ST_MODEL,DRIVE_NUMBER,0},
-	{"Status",   "DriveStatus",      "Active","",gs_driveTypeValues,2,0,ST_MODEL,DRIVE_STATUS,0},
-	{"Content","Drive",              "Empty","",0,0,0,ST_MODEL,DRIVE,0},
-	{"Mode",   "DriveTrueEmulation", "Fast","",gs_driveEmulationValues,2,0,ST_MODEL,DRIVE_TRUE_EMULATION,0},
-	{"Sound",  "DriveSoundEmulation","Disabled","",gs_driveSoundEmulationValues,2,0,ST_MODEL,DRIVE_SOUND_EMULATION,0},
+	{"Number", "DriveNumber",        "8","",gs_driveIDValues,4,0,ST_MODEL,DRIVE_NUMBER,0,0},
+	{"Status", "DriveStatus",        "Active","",gs_driveTypeValues,2,0,ST_MODEL,DRIVE_STATUS,0,0},
+	{"Content","Drive",              "Empty","",0,0,0,ST_MODEL,DRIVE,0,0},
+	{"Mode",   "DriveTrueEmulation", "Fast","",gs_driveEmulationValues,2,0,ST_MODEL,DRIVE_TRUE_EMULATION,0,1},
+	{"Sound",  "DriveSoundEmulation","Disabled","",gs_driveSoundEmulationValues,2,0,ST_MODEL,DRIVE_SOUND_EMULATION,0,1},
 	{"Datasette","","","",0,0,1},
-	{"Content",       "Datasette",            "Empty","",0,0,0,ST_MODEL,DATASETTE,0},
-	{"Control",       "DatasetteControl",     "Stop","",gs_datasetteControlValues,7,0,ST_MODEL,DATASETTE_CONTROL,0},
-	{"Reset with CPU","DatasetteResetWithCPU","Enabled","",gs_datasetteResetWithCPUValues,2,0,ST_MODEL,DATASETTE_RESET_WITH_CPU,0},
+	{"Content",       "Datasette",            "Empty","",0,0,0,ST_MODEL,DATASETTE,0,0},
+	{"Control",       "DatasetteControl",     "Stop","",gs_datasetteControlValues,7,0,ST_MODEL,DATASETTE_CONTROL,0,0},
+	{"Reset with CPU","DatasetteResetWithCPU","Enabled","",gs_datasetteResetWithCPUValues,2,0,ST_MODEL,DATASETTE_RESET_WITH_CPU,0,1},
 	{"Cartridge","","","",0,0,1},
-	{"Content",        "Cartridge",     "Empty","",0,0,0,ST_MODEL,CARTRIDGE,0},
-	{"Reset on change","CartridgeReset","Enabled","",gs_cartResetOnChangeValues,2,0,ST_MODEL,CARTRIDGE_RESET,0},
+	{"Content",        "Cartridge",     "Empty","",0,0,0,ST_MODEL,CARTRIDGE,0,0},
+	{"Reset on change","CartridgeReset","Enabled","",gs_cartResetOnChangeValues,2,0,ST_MODEL,CARTRIDGE_RESET,0,1},
 };
 
 
@@ -547,7 +548,7 @@ void Peripherals::loadSettingsFromFile(const char* ini_file)
 			continue;
 
 		memset(key_value, 0, 128);
-		if (!ini_parser.getKeyValue(ini_file, "Peripherals", gs_list[i].ini_name.c_str(), key_value) && strlen(key_value) != 0)
+		if (!ini_parser.getKeyValue(INI_FILE_SEC_PERIPHERALS, gs_list[i].ini_name.c_str(), key_value) && strlen(key_value) != 0)
 			gs_list[i].value = key_value;
 	}
 }
@@ -606,8 +607,19 @@ void Peripherals::saveSettingsToFile(const char* ini_file)
 		if (gs_list[i].isHeader)
 			continue;
 
-		ini_parser.setKeyValue(ini_file, "Peripherals", gs_list[i].ini_name.c_str(), gs_list[i].value.c_str());	
+		if (!gs_list[i].isSetting)
+			continue;
 
+		int ret = ini_parser.setKeyValue(INI_FILE_SEC_PERIPHERALS, 
+										gs_list[i].ini_name.c_str(), 
+										gs_list[i].value.c_str());	
+
+		if (ret == INI_PARSER_KEY_NOT_FOUND){
+			// Old ini file version. Add new key/value pair.
+			ini_parser.addKeyToSec(INI_FILE_SEC_PERIPHERALS, 
+									gs_list[i].ini_name.c_str(), 
+									gs_list[i].value.c_str());
+		}
 	}
 
 	ini_parser.saveToFile(ini_file);

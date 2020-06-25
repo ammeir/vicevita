@@ -947,7 +947,7 @@ int SaveSlots::applyPatchModuleSettings(const char* snapshot)
 		
 		if (value = strchr(token, '^')){
 			*value++ = '\0'; // Now token has the key value
-			if (!strcmp(token, "Keymaps")){
+			if (!strcmp(token, INI_FILE_KEY_KEYMAPS)){
 				keymaps = value;
 			}
 			else{

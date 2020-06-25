@@ -47,14 +47,19 @@ int IniParser::init(const char* ini_file)
 	return INI_PARSER_OK;
 }
 
-int	IniParser::getKeyValue(const char* ini_file, const char* section, const char* key, const char* ret)
+int	IniParser::getKeyValue(const char* section, const char* key, const char* ret)
 {
-	return m_iniFile.getKeyValue(ini_file, section, key, ret);
+	return m_iniFile.getKeyValue(section, key, ret);
 }
 
-int	IniParser::setKeyValue(const char* ini_file, const char* section, const char* key, const char* value)
+int	IniParser::setKeyValue(const char* section, const char* key, const char* value)
 {
-	return m_iniFile.setKeyValue(ini_file, section, key, value);
+	return m_iniFile.setKeyValue(section, key, value);
+}
+
+int	IniParser::addKeyToSec(const char* section, const char* key, const char* value)
+{
+	return m_iniFile.addKeyToSec(section, key, value);
 }
 
 char* IniParser::readToBuf(const char* ini_file)
@@ -175,7 +180,7 @@ int	IniFile::saveToFile(const char* ini_file)
 	return INI_PARSER_FILE_NOT_FOUND;
 }
 
-int	IniFile::getKeyValue(const char* ini_file, const char* section, const char* key, const char* ret)
+int	IniFile::getKeyValue(const char* section, const char* key, const char* ret)
 {
 	for(vector<Section>::iterator it=m_sections.begin(); it!=m_sections.end(); ++it){
 
@@ -193,7 +198,7 @@ int	IniFile::getKeyValue(const char* ini_file, const char* section, const char* 
 	return INI_PARSER_KEY_NOT_FOUND;
 }
 
-int	IniFile::setKeyValue(const char* ini_file, const char* section, const char* key, const char* value)
+int	IniFile::setKeyValue(const char* section, const char* key, const char* value)
 {
 	for(vector<Section>::iterator it=m_sections.begin(); it!=m_sections.end(); ++it){
 		
@@ -208,6 +213,27 @@ int	IniFile::setKeyValue(const char* ini_file, const char* section, const char* 
 	}
 
 	return INI_PARSER_KEY_NOT_FOUND;
+}
+
+int	IniFile::addKeyToSec(const char* section, const char* key, const char* value)
+{
+	if (!key)
+		return INI_PARSER_ERROR;
+
+	for(vector<Section>::iterator it=m_sections.begin(); it!=m_sections.end(); ++it){
+		if (!(*it).name.compare(section)){
+			KeyValuePair kv;
+			kv.key = key;
+			if (value){
+				kv.value = value;
+			}
+			(*it).keyValues.push_back(kv);
+
+			return INI_PARSER_OK;
+		}
+	}
+
+	return INI_PARSER_SECTION_NOT_FOUND;
 }
 
 string IniFile::toString()

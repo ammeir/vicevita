@@ -175,7 +175,6 @@ void Settings::buttonReleased(int button)
 
 		string conf_file_path;
 		conf_file_path = m_saveDir.empty()? DEF_CONF_FILE_PATH: m_saveDir + CONF_FILE_NAME;
-		prepareConfFile(conf_file_path.c_str());
 		
 		gtShowMsgBoxNoBtn("Saving...", this);
 		sceKernelDelayThread(850000);
@@ -438,7 +437,7 @@ void Settings::loadSettingsFromFile(const char* ini_file)
 			continue;
 
 		memset(key_value, 0, 128);
-		if (!ini_parser.getKeyValue(ini_file, "Settings", gs_list[i].ini_name.c_str(), key_value) && strlen(key_value) != 0)
+		if (!ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].ini_name.c_str(), key_value) && strlen(key_value) != 0)
 			gs_list[i].value = key_value;
 		
 		if (gs_list[i].id == CPU_SPEED) // % is not in ini file (HACK).
@@ -472,7 +471,16 @@ void Settings::saveSettingsToFile(const char* ini_file)
 		if (gs_list[i].isHeader)
 			continue;
 
-		ini_parser.setKeyValue(ini_file, "Settings", gs_list[i].ini_name.c_str(), gs_list[i].value.c_str());	
+		int ret = ini_parser.setKeyValue(INI_FILE_SEC_SETTINGS, 
+										gs_list[i].ini_name.c_str(), 
+										gs_list[i].value.c_str());	
+
+		if (ret == INI_PARSER_KEY_NOT_FOUND){
+			// Old ini file version. Add new key/value pair.
+			ini_parser.addKeyToSec(INI_FILE_SEC_SETTINGS, 
+									gs_list[i].ini_name.c_str(), 
+									gs_list[i].value.c_str());
+		}
 	}
 
 	ini_parser.saveToFile(ini_file);
@@ -672,37 +680,6 @@ void Settings::createConfFile(const char* file)
 		strcat(buf, "\x0D\x0A");
 		
 		fileExp.writeToFile(file, buf, strlen(buf));
-	}
-}
-
-void Settings::prepareConfFile(const char* ini_file)
-{
-	// This function updates the configure file with the latest version settings.
-
-	if (!ini_file)
-		return;
-
-	FileExplorer fileExp;
-	char* keymaps_value = NULL;
-
-	if (fileExp.fileExist(ini_file)){
-		// Save the keymaps value and delete the outdated conf file.
-		//PSV_DEBUG("Configure file already exists. Saving keymaps and deleting file...");
-		keymaps_value = new char[128];
-		IniParser ini_parser;
-		ini_parser.init(ini_file);
-		ini_parser.getKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
-		fileExp.deleteFile(ini_file);
-	}
-	// Create up to date conf file.
-	createConfFile(ini_file);
-
-	if (keymaps_value){
-		// Restore the keymaps value to the new conf file.
-		//PSV_DEBUG("Restoring the old keymaps value to the new conf file.");
-		IniParser ini_parser;
-		ini_parser.init(ini_file);
-		ini_parser.setKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);
 	}
 }
 

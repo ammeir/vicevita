@@ -33,6 +33,8 @@ using std::vector;
 enum IniParserRetCodes
 {
 	INI_PARSER_OK,
+	INI_PARSER_ERROR,
+	INI_PARSER_SECTION_NOT_FOUND,
 	INI_PARSER_KEY_NOT_FOUND,
 	INI_PARSER_FILE_NOT_FOUND
 };
@@ -63,8 +65,9 @@ public:
 	int					loadFromBuf(char* buffer);
 	int					loadFromFile(char* ini_file);
 	int					saveToFile(const char* ini_file);
-	int					getKeyValue(const char* ini_file, const char* section, const char* key, const char* ret);
-	int					setKeyValue(const char* ini_file, const char* section, const char* key, const char* value);
+	int					getKeyValue(const char* section, const char* key, const char* ret);
+	int					setKeyValue(const char* section, const char* key, const char* value);
+	int					addKeyToSec(const char* section, const char* key, const char* value);
 	string				toString();
 					
 
@@ -82,8 +85,9 @@ public:
 					~IniParser();
 
 	int				init(const char* ini_file);
-	int				getKeyValue(const char* ini_file, const char* section, const char* key, const char* ret);
-	int				setKeyValue(const char* ini_file, const char* section, const char* key, const char* value);
+	int				getKeyValue(const char* section, const char* key, const char* ret);
+	int				setKeyValue(const char* section, const char* key, const char* value);
+	int				addKeyToSec(const char* section, const char* key, const char* value);
 	char*			readToBuf(const char* ini_file);
 	int				saveToFile(const char* ini_file);
 
