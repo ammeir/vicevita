@@ -113,6 +113,8 @@ View::~View()
 
 void View::init(Controller* controller)
 {
+	//PSV_DEBUG("View::init()");
+
 	m_controller	= controller;
 	m_controlPad	= new ControlPad();
 	m_mainMenu		= new MainMenu();
@@ -182,7 +184,6 @@ void View::handleMainMenuSelection(string& selection)
 	else if (!selection.compare("Reset")){
 		m_controller->resetComputer();
 		notifyReset();
-		//updateSettings();
 		m_inGame = true;
 		m_uiActive = false;
 	}
@@ -359,7 +360,7 @@ void View::setTapeControl(int control)
 	m_statusbar->setTapeControl(control);
 }
 
-void View::setDriveStatus(int drive, int led)
+void View::setDriveLed(int drive, int led)
 {
 	m_statusbar->setDriveLed(drive, led);
 }
@@ -367,6 +368,16 @@ void View::setDriveStatus(int drive, int led)
 void View::setTapeMotorStatus(int motor)
 {
 	m_statusbar->setTapeMotor(motor);
+}
+
+void View::setDriveTrack(unsigned int drive, unsigned int track)
+{
+	m_statusbar->setDriveTrack(drive, track);
+}
+
+void View::setDriveDiskPresence(int drive, int disk_in)
+{
+	m_statusbar->setDriveDiskPresence(drive, disk_in);
 }
 
 int View::showMessage(const char* msg, int msg_type)
@@ -391,7 +402,7 @@ void View::toggleStatusbarOnView()
 	changeAspectRatio(m_aspectRatio);
 
 	if (!m_showStatusbar)
-		m_pendingDraw = true; // Force view update incase we are in still image
+		m_pendingDraw = true; // Force view update incase we are in still image.
 }
 
 void View::toggleKeyboardOnView()
@@ -428,30 +439,22 @@ string	View::getGameSaveDirPath()
 void View::createAppDirs()
 {
 	FileExplorer fileExp;
-	string dir = APP_DATA_DIR;
 
-	if (!fileExp.dirExist(dir.c_str()))
-		fileExp.makeDir(dir.c_str());
+	string dirs[9];
+	dirs[0] = APP_DATA_DIR;
+	dirs[1] = GAME_DIR;
+	dirs[2] = SAVE_DIR;
+	dirs[3] = VICE_DIR;
+	dirs[4] = TMP_DIR;
+	dirs[5] = TMP_DRV8_DIR;
+	dirs[6] = TMP_DRV9_DIR;
+	dirs[7] = TMP_DRV10_DIR;
+	dirs[8] = TMP_DRV11_DIR;
 
-	dir = GAME_DIR;
-
-	if (!fileExp.dirExist(dir.c_str()))
-		fileExp.makeDir(dir.c_str());
-
-	dir = SAVE_DIR;
-
-	if (!fileExp.dirExist(dir.c_str()))
-		fileExp.makeDir(dir.c_str());
-
-	dir = VICE_DIR;
-
-	if (!fileExp.dirExist(dir.c_str()))
-		fileExp.makeDir(dir.c_str());
-
-	dir = TMP_DIR;
-
-	if (!fileExp.dirExist(dir.c_str()))
-		fileExp.makeDir(dir.c_str());
+	for (int i=0; i<9; ++i){
+		if (!fileExp.dirExist(dirs[i].c_str()))
+			fileExp.makeDir(dirs[i].c_str());
+	}
 }
 
 void View::createDefConfFile()
@@ -511,14 +514,13 @@ void View::showStartGame()
 		selection = fileExp.doModal();
 		if (selection.empty()) 
 			break;
-		ret = m_controller->loadFile(AUTO_DETECT_LOAD, selection.c_str());
+		ret = m_peripherals->loadImage(CTRL_AUTO_DETECT_LOAD, selection.c_str());
 		if (ret < 0)
 			gtShowMsgBoxOk("Could not start image");
 	}
 	while(ret);
 
 	if (!selection.empty()){ 
-		g_game_file = selection;
 		updateSettings();
 		m_inGame = true;
 		m_uiActive = false;
@@ -533,7 +535,7 @@ void View::showStartGame()
 void View::showSaveSlots()
 {
 	string save_dir = (g_game_file.empty())? "": getGameSaveDirPath();
-	string file_name = getFileNameFromPath(g_game_file.c_str());
+	string file_name = getFileNameNoExt(g_game_file.c_str());
 
 	if (m_saveSlots->doModal(save_dir.c_str(), file_name.c_str()) == EXIT_MENU){
 		m_inGame = true;
@@ -544,7 +546,6 @@ void View::showSaveSlots()
 void View::showPeripherals()
 {
 	if (m_peripherals->doModal() == EXIT_MENU){
-		updateSettings();
 		m_inGame = true;
 		m_uiActive = false;
 	}
@@ -553,14 +554,14 @@ void View::showPeripherals()
 void View::showControls()
 {
 	string save_dir = (g_game_file.empty())? "": getGameSaveDirPath();
-	string file_name = getFileNameFromPath(g_game_file.c_str());
+	string file_name = getFileNameNoExt(g_game_file.c_str());
 	m_controls->doModal(save_dir.c_str(), file_name.c_str());
 }
 
 void View::showSettings()
 {
 	string save_dir = (g_game_file.empty())? "": getGameSaveDirPath();
-	string file_name = getFileNameFromPath(g_game_file.c_str());
+	string file_name = getFileNameNoExt(g_game_file.c_str());
 
 	m_settings->doModal(save_dir.c_str(), file_name.c_str());
 }
@@ -597,19 +598,19 @@ void View::changeAspectRatio(AspectRatio value)
 		m_posXNormalView = 0;
 		m_posYNormalView = 0;
 		m_scaleXNormalView = (float)960/m_viewport.width;
-		m_scaleYNormalView = (!m_showStatusbar)? (float)544/m_viewport.height: (float)513/m_viewport.height;
+		m_scaleYNormalView = (!m_showStatusbar)? (float)544/m_viewport.height: (float)514/m_viewport.height;
 		break;
 	case VIEW_ASPECT_RATIO_4_3:
 		m_aspectRatio = value;
 		m_posXNormalView = (960-m_viewport.width*2)/2;
 		m_posYNormalView = (544-m_viewport.height*2)/2;
 		m_scaleXNormalView = 2;
-		m_scaleYNormalView = (!m_showStatusbar)? 2: (float)513/272;;	
+		m_scaleYNormalView = (!m_showStatusbar)? 2: (float)514/272;;	
 		break;
 	case VIEW_ASPECT_RATIO_4_3_MAX:
 		m_aspectRatio = value;
 		m_scaleXNormalView = (float)544/m_viewport.height;
-		m_scaleYNormalView = (!m_showStatusbar)? m_scaleXNormalView: (float)513/m_viewport.height;
+		m_scaleYNormalView = (!m_showStatusbar)? m_scaleXNormalView: (float)514/m_viewport.height;
 		m_posXNormalView = (960-(m_viewport.width*m_scaleXNormalView))/2;
 		m_posYNormalView = 0;
 		break;
@@ -702,14 +703,15 @@ void View::onSettingChanged(int key, const char* value, const char* value2, cons
 	// Model setting changed.
 
 	switch (key){
-	case DRIVE8:
-	case DATASETTE:
-	case CARTRIDGE:
+	case DRIVE:
+	case DRIVE_STATUS:
 	case DRIVE_TRUE_EMULATION:
 	case DRIVE_SOUND_EMULATION:
-	case CARTRIDGE_RESET:
+	case DATASETTE:
 	case DATASETTE_RESET_WITH_CPU:
 	case DATASETTE_CONTROL:
+	case CARTRIDGE:
+	case CARTRIDGE_RESET:
 		m_peripherals->setKeyValue(key, value, value2, values, size, mask);
 		break;
 	default:
@@ -753,11 +755,13 @@ void View::setProperty(int key, const char* value)
 void View::getSettingValues(int key, const char** value, const char** value2, const char*** values, int* size)
 {
 	switch (key){
-	case DRIVE8:
-	case DATASETTE:
-	case CARTRIDGE:
+	case DRIVE:
+	case DRIVE_NUMBER:
+	case DRIVE_STATUS:
 	case DRIVE_TRUE_EMULATION:
 	case DRIVE_SOUND_EMULATION:
+	case DATASETTE:
+	case CARTRIDGE:
 	case CARTRIDGE_RESET:
 		m_peripherals->getKeyValues(key, value, value2, values, size);
 		break;
@@ -773,7 +777,7 @@ void View::activateMenu()
 
 int View::convertRGBToPixel(uint8_t red, uint8_t green, uint8_t blue)
 {
-	// Converts RGB triple to an pixel value of format 5-6-5.
+	// Converts RGB triple to a pixel value of format 5-6-5.
 	return RGB(red, green, blue);
 }
 
@@ -832,13 +836,11 @@ void View::notifyReset()
 {
 	// Notification that model is about to reset
 
-	// Check if a game cartridge is attached to the computer
-	m_controller->syncSetting(CARTRIDGE);
-	string cartridge_name = m_peripherals->getKeyValue(CARTRIDGE);
-	g_game_file = (cartridge_name == "Empty")? "BASIC": cartridge_name;
-
+	m_peripherals->notifyReset();
+	m_statusbar->notifyReset();
 	updateSettings();
 }
+	
 
 AspectRatio View::strToAspectRatio(const char* value)
 {
@@ -873,18 +875,25 @@ TextureFilter View::strToTextureFilter(const char* value)
 	return TEXTURE_FILTER_LINEAR;
 }
 
-string View::getFileNameFromPath(const char* fpath)
+string View::getFileNameNoExt(const char* fpath)
 {
 	string fname = fpath;
-
+	
+	// Remove path.
 	size_t slash_pos = fname.find_last_of("/");
 	if (slash_pos != string::npos){
-		return fname.substr(slash_pos+1, string::npos);
+		fname = fname.substr(slash_pos+1, string::npos);
+	}else{
+		size_t colon_pos = fname.find_last_of(":");
+		if (colon_pos != string::npos){
+			fname = fname.substr(colon_pos+1, string::npos);
+		}
 	}
 
-	size_t colon_pos = fname.find_last_of(":");
-	if (colon_pos != string::npos){
-		return fname.substr(colon_pos+1, string::npos);
+	// Remove extension.
+	size_t comma_pos = fname.find_last_of(".");
+	if (comma_pos != string::npos){
+		fname = fname.substr(0, comma_pos);
 	}
 
 	return fname;
@@ -893,8 +902,37 @@ string View::getFileNameFromPath(const char* fpath)
 void View::cleanTmpDir()
 {
 	FileExplorer fileExp;
+	
 	fileExp.readDirContent(TMP_DIR);
 	vector<DirEntry> dir_content = fileExp.getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		fileExp.deleteFile((*it).path.c_str());
+	}
+
+	fileExp.readDirContent(TMP_DRV8_DIR);
+	dir_content = fileExp.getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		fileExp.deleteFile((*it).path.c_str());
+	}
+
+	fileExp.readDirContent(TMP_DRV9_DIR);
+	dir_content = fileExp.getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		fileExp.deleteFile((*it).path.c_str());
+	}
+
+	fileExp.readDirContent(TMP_DRV10_DIR);
+	dir_content = fileExp.getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		fileExp.deleteFile((*it).path.c_str());
+	}
+
+	fileExp.readDirContent(TMP_DRV11_DIR);
+	dir_content = fileExp.getDirContent();
 
 	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
 		fileExp.deleteFile((*it).path.c_str());

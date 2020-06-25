@@ -74,7 +74,6 @@ private:
 	int						m_highligtBarYpos;
 	int						m_posXValue;
 	int						m_maxValueWidth;
-	string					m_loadFilePath;
 	string					m_saveDir;
 	string					m_gameFile;
 	string					m_confFileDesc;

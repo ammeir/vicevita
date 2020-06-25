@@ -132,7 +132,7 @@ private:
 	AspectRatio		strToAspectRatio(const char* value);
 	TextureFilter	strToTextureFilter(const char* value);
 	KeyboardMode	strToKeyboardMode(const char* value);
-	string			getFileNameFromPath(const char* fpath);
+	string			getFileNameNoExt(const char* fpath);
 	void			setHostCpuFrequency(const char* freq);
 	void			cleanTmpDir();
 	void			printTestRect();
@@ -154,8 +154,10 @@ public:
 	void			setFPSCount(int fps, int percent, int warp_flag);
 	void			setTapeCounter(int count);
 	void			setTapeControl(int status);
-	void			setDriveStatus(int drive, int led);
+	void			setDriveLed(int drive, int led);
 	void			setTapeMotorStatus(int motor);
+	void			setDriveTrack(unsigned int drive, unsigned int track);
+	void			setDriveDiskPresence(int drive, int disk_in);
 	int				showMessage(const char* msg, int msg_type);
 	void			displayPaused(int);
 	void			toggleStatusbarOnView();

@@ -40,6 +40,15 @@
 #define IMG_SB_TAPE_RECORD_MOTOR_OFF  12
 #define IMG_SB_NULL					  13
 
+typedef struct{
+	int		number;
+	int		led;
+	char	track[8];
+	//float	track;
+	int		bitmask;
+}drive_s;
+
+
 using std::string;
 
 class View;
@@ -49,15 +58,19 @@ class Statusbar
 
 private:
 	View*			m_view;
+	drive_s			m_drives[4];
 	vita2d_texture* m_bitmaps[16];
 	vita2d_texture* m_tapeControlTex;
-	int				m_warpFlag;
-	int				m_tapeControl;
-	int				m_tapeMotor;
+	char			m_track[8];
 	char			m_fps[8];
 	char			m_cpu[8];
 	char			m_counter[8];
+	int				m_warpFlag;
+	int				m_tapeControl;
+	int				m_tapeMotor;
+	int				m_lastActiveDrive;
 	char			m_driveLedMask;
+	char			m_driveDiskMask;
 	bool			m_updated;
 	
 	void			loadResources();
@@ -74,7 +87,10 @@ public:
 	void			setTapeControl(int control);
 	void			setDriveLed(int drive, int led);
 	void			setTapeMotor(int motor);
+	void			setDriveTrack(unsigned int drive, unsigned int half_track);
+	void			setDriveDiskPresence(int drive, int disk_in);
 	bool			isUpdated();
+	void			notifyReset();
 };
 
 #endif

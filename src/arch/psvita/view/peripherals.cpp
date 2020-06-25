@@ -38,13 +38,19 @@
 
 
 // Max rows on the screen
-#define MAX_ENTRIES 18
-#define FONT_Y_SPACE 22
-#define SCROLL_BAR_X 930
-#define SCROLL_BAR_Y 35 
-#define SCROLL_BAR_WIDTH 8
-#define SCROLL_BAR_HEIGHT 450 
+#define MAX_ENTRIES			18
+#define FONT_Y_SPACE		22
+#define SCROLL_BAR_X		930
+#define SCROLL_BAR_Y		35 
+#define SCROLL_BAR_WIDTH	8
+#define SCROLL_BAR_HEIGHT	450 
 
+#define DEV_DRIVE8		0
+#define DEV_DRIVE9		1
+#define DEV_DRIVE10		2
+#define DEV_DRIVE11		3
+#define DEV_DATASETTE	4
+#define DEV_CARTRIDGE	5
 
 // Pointer to member function type
 typedef void (Peripherals::*handler_func_t)(int, const char*);
@@ -63,18 +69,22 @@ typedef struct
 	handler_func_t	handler; // Handler function when settings change
 } PeripheralEntry;
 
-static const char* gs_driveEmulationValues[]	      = {"Fast","True"};
+static const char* gs_driveIDValues[]                 = {"8","9","10","11"};
+static const char* gs_driveTypeValues[]               = {"Active","Not active"};
+static const char* gs_driveEmulationValues[]          = {"Fast","True"};
 static const char* gs_driveSoundEmulationValues[]     = {"Enabled","Disabled"};
 static const char* gs_datasetteControlValues[]	      = {"Stop","Play","Forward","Rewind","Record","Reset","Reset counter"};
 static const char* gs_datasetteResetWithCPUValues[]	  = {"Enabled","Disabled"};
 static const char* gs_cartResetOnChangeValues[]	      = {"Enabled","Disabled"};
 
 
-static int gs_peripheralEntriesSize = 11;
+static int gs_peripheralEntriesSize = 13;
 static PeripheralEntry gs_list[] = 
 {
-	{"Drive 8","","","",0,0,1}, /* Header line */
-	{"Content","Drive8",             "Empty","",0,0,0,ST_MODEL,DRIVE8,0},
+	{"Drive","","","",0,0,1}, /* Header line */
+	{"Number", "DriveNumber",        "8","",gs_driveIDValues,4,0,ST_MODEL,DRIVE_NUMBER,0},
+	{"Status",   "DriveStatus",      "Active","",gs_driveTypeValues,2,0,ST_MODEL,DRIVE_STATUS,0},
+	{"Content","Drive",              "Empty","",0,0,0,ST_MODEL,DRIVE,0},
 	{"Mode",   "DriveTrueEmulation", "Fast","",gs_driveEmulationValues,2,0,ST_MODEL,DRIVE_TRUE_EMULATION,0},
 	{"Sound",  "DriveSoundEmulation","Disabled","",gs_driveSoundEmulationValues,2,0,ST_MODEL,DRIVE_SOUND_EMULATION,0},
 	{"Datasette","","","",0,0,1},
@@ -135,6 +145,50 @@ RetCode Peripherals::doModal()
 	return m_exitCode;
 }
 
+int Peripherals::loadImage(int load_type, const char* file, int index)
+{
+	
+	int ret = m_controller->loadFile(load_type, file, index);
+	
+	if (ret < 0)
+		return -1;
+
+	// Savestate location update.
+	switch (load_type){
+	case CTRL_AUTO_DETECT_LOAD:
+		if (ret == IMAGE_DISK || ret == IMAGE_PROGRAM)
+			m_devSaveFiles[DEV_DRIVE8] = file;
+		else if (ret == IMAGE_TAPE)
+			m_devSaveFiles[DEV_DATASETTE] = file;
+		else if (ret == IMAGE_CARTRIDGE)
+			m_devSaveFiles[DEV_CARTRIDGE] = file;
+
+		g_game_file = file; 
+		break;
+	case CTRL_DISK_LOAD:
+	{
+		int current_drive = getDriveId();
+
+		if (current_drive == 8)
+			g_game_file = m_devSaveFiles[DEV_DRIVE8];
+		else if (current_drive == 9)
+			g_game_file = m_devSaveFiles[DEV_DRIVE9];
+		else if (current_drive == 10)
+			g_game_file = m_devSaveFiles[DEV_DRIVE10];
+		else if (current_drive == 11)
+			g_game_file = m_devSaveFiles[DEV_DRIVE11];
+		break;
+	}
+	case CTRL_TAPE_LOAD:
+		g_game_file = m_devSaveFiles[DEV_DATASETTE];
+		break;
+	case CTRL_CART_LOAD:
+		g_game_file = m_devSaveFiles[DEV_CARTRIDGE];
+	}
+
+	return 0;
+}
+
 void Peripherals::buttonReleased(int button)
 {
 	switch (button){
@@ -163,11 +217,11 @@ void Peripherals::buttonReleased(int button)
 			if (!isActionAllowed(PERIF_ACTION_ATTACH))
 				return;
 
-			string image = showFileBrowser(gs_list[m_highlight].id);
+			string file = showFileBrowser(gs_list[m_highlight].id);
 			
-			if (!image.empty()){
+			if (!file.empty()){
 				gtShowMsgBoxNoBtn("Attaching...");
-				attachImage(gs_list[m_highlight].id, image.c_str());
+				attachImage(gs_list[m_highlight].id, file.c_str());
 			}
 
 			show();
@@ -183,20 +237,15 @@ void Peripherals::buttonReleased(int button)
 
 			int ret = 0;
 			if (entry->id == CARTRIDGE){
-				ret = m_controller->loadFile(CART_LOAD, entry->value2.c_str());
-				if (ret == 0){
-					g_game_file = entry->value2.c_str();
-					// Load game specific settings.
-					m_view->updateSettings();
-				}
+				ret = loadImage(CTRL_CART_LOAD, entry->value2.c_str());
 			}
-			else if (entry->id == DRIVE8){
+			else if (entry->id == DRIVE){
 				int index = getValueIndex(entry->value.c_str(), entry->values, entry->values_size);
-				ret = m_controller->loadFile(DISK_LOAD, entry->value2.c_str(), entry->value.c_str(), index+1, entry->value.c_str());
+				ret = loadImage(CTRL_DISK_LOAD, entry->value2.c_str(), index);
 			}
 			else if (entry->id == DATASETTE){
 				int index = getValueIndex(entry->value.c_str(), entry->values, entry->values_size);
-				ret = m_controller->loadFile(TAPE_LOAD, entry->value2.c_str(), entry->value.c_str(), index, entry->value.c_str());
+				ret = loadImage(CTRL_TAPE_LOAD, entry->value2.c_str(), index);
 			}
 
 			if (ret < 0){
@@ -205,6 +254,7 @@ void Peripherals::buttonReleased(int button)
 				break;
 			}
 
+			m_view->updateSettings();
 			Navigator::m_running = false; 
 			m_exitCode = EXIT_MENU; // Return to the game
 		}
@@ -296,9 +346,16 @@ void Peripherals::navigateRight()
 	if (!selection.empty()){
 		if (gs_list[m_highlight].value != selection){
 			gs_list[m_highlight].value = selection;
-			(this->*gs_list[m_highlight].handler)(gs_list[m_highlight].id, gs_list[m_highlight].value.c_str());
-			if (!naviOnPeripherals())
-				m_settingsChanged = true;
+
+			if (gs_list[m_highlight].id == DRIVE_NUMBER){
+				// Just refresh drive status and content.
+				m_controller->syncSetting(DRIVE_STATUS);
+				m_controller->syncSetting(DRIVE);
+			}else{
+				(this->*gs_list[m_highlight].handler)(gs_list[m_highlight].id, gs_list[m_highlight].value.c_str());
+				if (naviOnSetting())
+					m_settingsChanged = true;
+			}
 		}
 	}
 
@@ -320,13 +377,16 @@ void Peripherals::show()
 
 void Peripherals::render()
 { 
-	int y = 55;
+	int y = 60;
 	int key_color, val_color, arr_color;
 	int start = m_borderTop;
 	int end = (gs_peripheralEntriesSize > MAX_ENTRIES)? m_borderBottom: gs_peripheralEntriesSize-1;
 
+	// Game file name
+	txtr_draw_text(15, 20, C64_BLUE, getImageFileName().c_str());
+
 	// Top seperation line
-	vita2d_draw_line(15, 25, 940, 25, YELLOW_TRANSPARENT);
+	vita2d_draw_line(15, 30, 940, 30, YELLOW_TRANSPARENT);
 
 	for (int i=start; i<=end; ++i){
 		PeripheralEntry* entry = &gs_list[i];
@@ -387,8 +447,17 @@ void Peripherals::renderInstructions()
 	}
 
 	int offset_x=0;
-	if (naviOnPeripherals()){
-		if (gs_list[m_highlight].value == "Empty"){
+	if (naviOnPeripheral()){
+
+		if (gs_list[m_highlight].id == DRIVE && getKeyValue(DRIVE_STATUS) == "Not active"){
+			// Drive is not active. Don't draw attach/detach.
+			if (m_settingsChanged)
+				offset_x = -60;
+			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=400, 510); 
+			offset_x+=95;
+
+		}
+		else if (gs_list[m_highlight].value == "Empty"){
 			if (m_settingsChanged)
 				offset_x = -60;
 			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=357, 510); 
@@ -455,9 +524,9 @@ bool Peripherals::isActionAllowed(PeripheralsAction action)
 		return m_settingsChanged? true: false;
 	case PERIF_ACTION_ATTACH:
 	case PERIF_ACTION_DETACH:
-		return naviOnPeripherals()? true: false;
+		return (naviOnPeripheral() && getKeyValue(DRIVE_STATUS) == "Active")? true: false;
 	case PERIF_ACTION_LOAD:
-		return (naviOnPeripherals() && gs_list[m_highlight].value != "Empty")? true: false;
+		return (naviOnPeripheral() && gs_list[m_highlight].value != "Empty")? true: false;
 	case PERIF_ACTION_FREEZE:
 		return (gs_list[m_highlight].id == CARTRIDGE && gs_list[m_highlight].value != "Empty")? true: false;
 	default:
@@ -600,7 +669,6 @@ void Peripherals::getKeyValues(int key, const char** value, const char** value2,
 	}
 }
 
-
 void Peripherals::applyAllSettings()
 {
 	for (int i = 0; i<gs_peripheralEntriesSize; ++i){
@@ -611,10 +679,27 @@ void Peripherals::applyAllSettings()
 			(this->*gs_list[i].handler)(gs_list[i].id, gs_list[i].value.c_str());
 	}
 }
+
+void Peripherals::notifyReset()
+{
+	// Computer is about to reset.
+	
+	// Check if cartridge is attached and update the savestate location accordingly.
+	m_controller->syncSetting(CARTRIDGE);
+	string cartridge_name = getKeyValue(CARTRIDGE);
+	g_game_file = (cartridge_name == "Empty")? "BASIC": m_devSaveFiles[DEV_CARTRIDGE];
+}
 	
 void Peripherals::handleModelSetting(int key, const char* value)
 {
 	switch (key){
+	case DRIVE_STATUS:
+	case DRIVE_TRUE_EMULATION:
+	case DRIVE_SOUND_EMULATION:
+	case DATASETTE_RESET_WITH_CPU:
+	case CARTRIDGE_RESET:
+		m_controller->setModelProperty(key, value);
+		break;
 	case DATASETTE_CONTROL:
 		{
 		int cmd = 0;
@@ -636,12 +721,6 @@ void Peripherals::handleModelSetting(int key, const char* value)
 		m_controller->setTapeControl(cmd);
 		break;
 		}
-	case DRIVE_TRUE_EMULATION:
-	case DRIVE_SOUND_EMULATION:
-	case DATASETTE_RESET_WITH_CPU:
-	case CARTRIDGE_RESET:
-		m_controller->setModelProperty(key, value);
-		break;
 	}
 }
 
@@ -650,10 +729,21 @@ void Peripherals::handleViewSetting(int key, const char* value)
 	m_view->setProperty(key, value);
 }
 
-bool Peripherals::naviOnPeripherals(){
-	if (gs_list[m_highlight].id == DRIVE8 ||
+bool Peripherals::naviOnPeripheral(){
+	if (gs_list[m_highlight].id == DRIVE ||
 	    gs_list[m_highlight].id == DATASETTE ||
 	    gs_list[m_highlight].id == CARTRIDGE)
+	    return true;
+		
+	return false;
+}
+
+bool Peripherals::naviOnSetting()
+{
+	if (gs_list[m_highlight].id == DRIVE_TRUE_EMULATION ||
+	    gs_list[m_highlight].id == DRIVE_SOUND_EMULATION ||
+	    gs_list[m_highlight].id == DATASETTE_RESET_WITH_CPU ||
+		gs_list[m_highlight].id == CARTRIDGE_RESET)
 	    return true;
 		
 	return false;
@@ -696,33 +786,61 @@ int Peripherals::getValueIndex(const char* value, const char** values, int size)
 	return 0;
 }
 
-string Peripherals::getFileNameFromPath(const char* fpath)
+string Peripherals::getImageFileName()
 {
-	string fname = fpath;
+	// Return the image file name attached to a device.
 
-	size_t slash_pos = fname.find_last_of("/");
+	string image_file = gs_list[m_highlight].value2;
+
+	// Remove path.
+	size_t slash_pos = image_file.find_last_of("/");
 	if (slash_pos != string::npos){
-		return fname.substr(slash_pos+1, string::npos);
+		image_file = image_file.substr(slash_pos+1, string::npos);
+	}else{
+		size_t colon_pos = image_file.find_last_of(":");
+		if (colon_pos != string::npos){
+			image_file = image_file.substr(colon_pos+1, string::npos);
+		}
 	}
 
-	size_t colon_pos = fname.find_last_of(":");
-	if (colon_pos != string::npos){
-		return fname.substr(colon_pos+1, string::npos);
-	}
-
-	return fname;
+	// Shrink the string to fit the screen.
+	return getDisplayFitString(image_file.c_str(), 940);
 }
 
-void Peripherals::attachImage(int peripheral, const char* image)
+int Peripherals::attachImage(int peripheral, const char* file)
 {
 	int index = getKeyIndex(peripheral);
 
 	if (index < 0)
-		return;
+		return -1;
 	
-	gtShowMsgBoxNoBtn("Attaching...");
-	if (m_controller->attachImage(peripheral, image, gs_list[index].values, gs_list[index].values_size) < 0)
-		return;
+	if (m_controller->attachImage(peripheral, file, gs_list[index].values, gs_list[index].values_size) < 0)
+		return -1;
+
+	// Savestate location update.
+	switch (peripheral){
+	case DRIVE:
+	{
+		int current_drive = getDriveId();
+		if (current_drive == 8)
+			m_devSaveFiles[DEV_DRIVE8] = file;
+		else if (current_drive == 9)
+			m_devSaveFiles[DEV_DRIVE9] = file;
+		else if (current_drive == 10)
+			m_devSaveFiles[DEV_DRIVE10] = file;
+		else if (current_drive == 11)
+			m_devSaveFiles[DEV_DRIVE11] = file;
+		break;
+	}
+	case DATASETTE:
+		m_devSaveFiles[DEV_DATASETTE] = file; 
+		break;
+	case CARTRIDGE:
+		m_devSaveFiles[DEV_CARTRIDGE] = file; 
+		break;
+	}
+
+	return 0;
 }
 
 void Peripherals::detachImage(int peripheral)
@@ -746,4 +864,29 @@ int	Peripherals::getKeyIndex(int key)
 	return -1;
 }
 
+int Peripherals::getDriveId()
+{
+	int ret = 0;
+
+	for (int i=0; i<gs_peripheralEntriesSize; i++){
+		
+		if (gs_list[i].isHeader)
+			continue;
+		if (gs_list[i].id == DRIVE_NUMBER){
+			int index = getValueIndex(gs_list[i].value.c_str(), gs_list[i].values, gs_list[i].values_size);
+			switch (index){
+			case 0:
+				ret = 8; break;
+			case 1:
+				ret = 9; break;
+			case 2:
+				ret = 10; break;
+			case 3:
+				ret = 11; break;
+			}
+		}
+	}
+
+	return ret;
+}
 

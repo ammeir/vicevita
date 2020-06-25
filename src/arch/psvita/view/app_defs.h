@@ -8,6 +8,10 @@
 #define SAVE_DIR APP_DATA_DIR	"saves/"
 #define VICE_DIR APP_DATA_DIR	"vice/"
 #define TMP_DIR APP_DATA_DIR	"tmp/"
+#define TMP_DRV8_DIR TMP_DIR	"d8/"
+#define TMP_DRV9_DIR TMP_DIR	"d9/"
+#define TMP_DRV10_DIR TMP_DIR	"d10/"
+#define TMP_DRV11_DIR TMP_DIR	"d11/"
 
 // ux0:app is not accessible by regular apps but they can access their own resources through app0:
 // which is mounted to point to their own directory and is also mounted as read only.
@@ -59,33 +63,35 @@
 #define HOST_CPU_SPEED				14
 #define FPS_COUNTER					15
 #define SOUND						16		
-#define DRIVE8						17
-#define DRIVE_TRUE_EMULATION		18
-#define DRIVE_SOUND_EMULATION		19
-#define DATASETTE					20
-#define DATASETTE_CONTROL			21
-#define DATASETTE_COUNTER			22
-#define DATASETTE_RESET_WITH_CPU	23
-#define CARTRIDGE					24
-#define CARTRIDGE_RESET				25
-#define MACHINE_RESET				26
-#define MOUSE						27
-#define MOUSE_MODEL					28
-#define MOUSE_PORT					29
-#define SETTINGS_ALL				30
-#define SETTINGS_VIEW				31
-#define SETTINGS_MODEL				32
-#define SETTINGS_MODEL_NOT_IN_SNAP	33
+#define DRIVE						17
+#define DRIVE_NUMBER                18
+#define DRIVE_STATUS                19
+#define DRIVE_TRUE_EMULATION		20
+#define DRIVE_SOUND_EMULATION		21
+#define DATASETTE					22
+#define DATASETTE_CONTROL			23
+#define DATASETTE_COUNTER			24
+#define DATASETTE_RESET_WITH_CPU	25
+#define CARTRIDGE					26
+#define CARTRIDGE_RESET				27
+#define MACHINE_RESET				28
+#define MOUSE						29
+#define MOUSE_MODEL					30
+#define MOUSE_PORT					31
+#define SETTINGS_ALL				32
+#define SETTINGS_VIEW				33
+#define SETTINGS_MODEL				34
+#define SETTINGS_MODEL_NOT_IN_SNAP	35
 
 // Setting types
 #define ST_MODEL					1 
 #define ST_VIEW						2 
 
 // Image file type
-#define IMAGE_DISK					0
-#define IMAGE_TAPE					1
-#define IMAGE_CARTRIDGE				2
-#define IMAGE_PROGRAM				3
+#define IMAGE_TAPE					0
+#define IMAGE_CARTRIDGE				1
+#define IMAGE_PROGRAM				2
+#define IMAGE_DISK					3
 
 // Snapshot patch modules. Max 16 letters.
 #define SNAP_MOD_THUMB				"SMOD_THUMB"

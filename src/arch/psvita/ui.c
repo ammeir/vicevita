@@ -165,8 +165,9 @@ void ui_display_tape_control_status(int control)
 {
 	static int tape_control = 0;
 
-	if (tape_control != control)
+	if (tape_control != control){
 		PSV_NotifyTapeControl(control);
+	}
 
 	tape_control = control;
 }
@@ -194,10 +195,15 @@ void ui_display_recording(int recording_status)
 {
 }
 
+/* Function to report changes in drive head location.
+   drive_number:       The unit to update (0-3 for drives 8-11)
+   drive_base:         Currently unused.
+   half_track_number:  Twice the value of the head location. 18.0 is 36, while 18.5 would be 37.*/
 void ui_display_drive_track(unsigned int drive_number,
                             unsigned int drive_base,
                             unsigned int half_track_number)
 {
+	PSV_NotifyDriveTrack(drive_number, half_track_number);
 }
 
 void ui_enable_drive_status(ui_drive_enable_t state, int *drive_led_color)

@@ -75,7 +75,6 @@ private:
 	int					m_highlightColor;
 	string				m_path;
 	SaveSlotsState		m_state;
-	string				m_loadFilePath;
 	string				m_displayfileName;
 	RetCode				m_exitCode;
 

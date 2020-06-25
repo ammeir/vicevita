@@ -31,7 +31,6 @@
 #include <string>
 
 
-
 typedef enum {
 	PERIF_ACTION_SAVE = 0,
 	PERIF_ACTION_LOAD,
@@ -60,7 +59,7 @@ private:
 	int						m_highligtBarYpos;
 	int						m_posXValue;
 	int						m_maxValueWidth;
-	string					m_loadFilePath;
+	string					m_devSaveFiles[6];
 	RetCode					m_exitCode;
 	
 	// Virtual function implementations
@@ -79,13 +78,16 @@ private:
 	string					showFileBrowser(int peripheral);
 	string					getDisplayFitString(const char* str, int limit, float font_size = 1);
 	bool					isActionAllowed(PeripheralsAction);
-	bool					naviOnPeripherals();
+	bool					naviOnPeripheral();
+	bool					naviOnSetting();
 	void					handleModelSetting(int key, const char* value);
 	void					handleViewSetting(int key, const char* value);
-	string					getFileNameFromPath(const char* fpath);
+	string					getImageFileName();
 	void					detachImage(int peripheral);
 	int						getKeyIndex(int key);
 	int						getValueIndex(const char* value, const char** values, int size);
+	int						getDriveId();
+
 
 public:
 							Peripherals();
@@ -93,11 +95,13 @@ public:
 
 	void					init(View* view, Controller* controller);
 	RetCode					doModal();
+	int						loadImage(int load_type, const char* file, int index = 0);
 	string					getKeyValue(int key);
 	void					getKeyValues(int key, const char** value, const char** value2, const char*** values, int* size);
 	void					setKeyValue(int key, const char* value, const char* value2, const char** values, int size, int mask);
-	void					attachImage(int peripheral, const char* image);
+	int						attachImage(int peripheral, const char* image);
 	void					applyAllSettings();
+	void					notifyReset();
 };
 
 

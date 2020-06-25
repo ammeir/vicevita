@@ -150,10 +150,10 @@ RetCode Settings::doModal(const char* save_dir, const char* file_name)
 {
 	if (m_saveDir != save_dir){
 		m_saveDir = save_dir;
-		m_confFileDesc = getConfFileDesc();
 		m_state = (m_confFileDesc == "[Default]")? STN_STATE_INGAME_DEFAULT_CONF: STN_STATE_GAME_CONF;
 	}
 
+	m_confFileDesc = getConfFileDesc();
 	// Game file header name. Shrink the string to fit the screen.
 	int max_width = 890 - txtr_get_text_width(m_confFileDesc.c_str(), 22);
 	m_gameFile = getDisplayFitString(file_name, max_width);
@@ -687,7 +687,7 @@ void Settings::prepareConfFile(const char* ini_file)
 
 	if (fileExp.fileExist(ini_file)){
 		// Save the keymaps value and delete the outdated conf file.
-		PSV_DEBUG("Configure file already exists. Saving keymaps and deleting file...");
+		//PSV_DEBUG("Configure file already exists. Saving keymaps and deleting file...");
 		keymaps_value = new char[128];
 		IniParser ini_parser;
 		ini_parser.init(ini_file);
@@ -699,7 +699,7 @@ void Settings::prepareConfFile(const char* ini_file)
 
 	if (keymaps_value){
 		// Restore the keymaps value to the new conf file.
-		PSV_DEBUG("Restoring the old keymaps value to the new conf file.");
+		//PSV_DEBUG("Restoring the old keymaps value to the new conf file.");
 		IniParser ini_parser;
 		ini_parser.init(ini_file);
 		ini_parser.setKeyValue(ini_file, "Controls", "Keymaps", keymaps_value);

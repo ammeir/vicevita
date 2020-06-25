@@ -236,11 +236,10 @@ void ui_display_speed(float percent, float framerate, int warp_flag)
 
 void ui_display_drive_led(int drive_number, unsigned int led_pwm1, unsigned int led_pwm2)
 {
-	int led_status = (led_pwm1 > 100);
+	int led_status = (led_pwm1 > 500);
 
-	if (drive_led_on != led_status)
-		PSV_NotifyDriveStatus(drive_number + 8, led_status);
-
+	PSV_NotifyDriveStatus(drive_number, led_status);
+	
 	drive_led_on = led_status;
 }
 

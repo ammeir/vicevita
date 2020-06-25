@@ -28,14 +28,21 @@
 #include <string.h> // memcpy
 #include <vita2d.h>
 
+// Drive mask to drive number lookup
+int drive_lookup[16] = {
+	0,0,1,0,2,0,0,0,
+	3,0,0,0,0,0,0,0
+};
 
 Statusbar::Statusbar()
 {
 	m_updated = false;
 	m_driveLedMask = 0;
+	m_driveDiskMask = 0;
 	m_tapeMotor = 0;
 	m_tapeControl = 0;
 	m_tapeControlTex = NULL;
+	m_lastActiveDrive = 0;
 }
 
 Statusbar::~Statusbar()
@@ -56,6 +63,13 @@ void Statusbar::init(View* view)
 	sprintf(m_counter, "000");
 	sprintf(m_cpu, "000%%");
 	sprintf(m_fps, "00");
+
+	for (int i=0; i<4; ++i){
+		m_drives[i].number = i+8;
+		m_drives[i].led = 0;
+		m_drives[i].bitmask = 0x01 << i;
+		sprintf(m_drives[i].track, "00.0"); 
+	}
 }
 
 void Statusbar::show()
@@ -74,30 +88,54 @@ int Statusbar::render()
 	// Statusbar layout. Drawing layout is faster than drawing it from scratch.
 	vita2d_draw_texture(m_bitmaps[IMG_SB_STATUSBAR], 0, 513);
 
-	// Drive leds.
+	// Drive leds and track.
 	if (m_driveLedMask){
-		if (m_driveLedMask & 0x01)
-			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 77, 522); 
-		if (m_driveLedMask & 0x02)
-			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 102, 522);
-		if (m_driveLedMask & 0x04)
-			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 127, 522); 
-		if (m_driveLedMask & 0x08)
-			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 152, 522); 
+		if (m_drives[0].led)
+			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 71, 522); 
+		if (m_drives[1].led)
+			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 94, 522);
+		if (m_drives[2].led)
+			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 117, 522); 
+		if (m_drives[3].led)
+			vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_RED], 140, 522); 
+
+		txtr_draw_text(243, 534, YELLOW, m_drives[drive_lookup[m_driveLedMask]].track);
+	}
+	else{
+		// No leds on. 
+		if (!m_driveDiskMask){
+			// No disks at any drive.
+			txtr_draw_text(243, 534, YELLOW, "00.0");
+		}
+		else{
+			txtr_draw_text(243, 534, YELLOW, m_drives[drive_lookup[m_lastActiveDrive]].track);
+		}
+	}
+
+	// Disk presence.
+	if (m_driveDiskMask){
+		if (m_driveDiskMask & 0x01)
+			vita2d_draw_line(76, 538, 82, 538, YELLOW);
+		if (m_driveDiskMask & 0x02)
+			vita2d_draw_line(99, 538, 105, 538, YELLOW);
+		if (m_driveDiskMask & 0x04)
+			vita2d_draw_line(122, 538, 128, 538, YELLOW);
+		if (m_driveDiskMask & 0x08)
+			vita2d_draw_line(145, 538, 151, 538, YELLOW);
 	}
 
 	// Tape control texture.
 	if (m_tapeControlTex)
-		vita2d_draw_texture(m_tapeControlTex, 259, 520); 
+		vita2d_draw_texture(m_tapeControlTex, 374, 520); 
 
 	// Tape counter, fps, cpu percentage.
-	txtr_draw_text(385, 534, YELLOW, m_counter);
-	txtr_draw_text(498, 534, YELLOW, m_fps);
-	txtr_draw_text(598, 534, YELLOW, m_cpu);
+	txtr_draw_text(453, 534, YELLOW, m_counter);
+	txtr_draw_text(567, 534, YELLOW, m_fps);
+	txtr_draw_text(668, 534, YELLOW, m_cpu);
 	
 	// Warp led.
 	if (m_warpFlag)
-		vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_GREEN], 744, 522);
+		vita2d_draw_texture(m_bitmaps[IMG_SB_LED_ON_GREEN], 811, 522);
 
 	m_updated = false;
 	return 1;
@@ -123,21 +161,16 @@ void Statusbar::setSpeedData(int fps, int cpu, int warp_flag)
 
 void Statusbar::setDriveLed(int drive, int led)
 {
-	switch(drive){
-	case 8:
-		m_driveLedMask = led? m_driveLedMask | 0x01: m_driveLedMask & 0xFE;
-		break;
-	case 9:
-		m_driveLedMask = led? m_driveLedMask | 0x02: m_driveLedMask & 0xFD;
-		break;
-	case 10:
-		m_driveLedMask = led? m_driveLedMask | 0x04: m_driveLedMask & 0xFB;
-		break;
-	case 11:
-		m_driveLedMask = led? m_driveLedMask | 0x08: m_driveLedMask & 0xF7;
-		break;
-	}
-	
+	if (drive > 3)
+		return;
+
+	m_drives[drive].led = led;
+	m_driveLedMask = led? m_driveLedMask | m_drives[drive].bitmask: 
+		                  m_driveLedMask & ~m_drives[drive].bitmask;
+
+	if (led)
+		m_lastActiveDrive = drive;
+
 	m_updated = true;
 }
 
@@ -206,9 +239,40 @@ void Statusbar::setTapeMotor(int motor)
 	setTapeControl(m_tapeControl);
 }
 
+void Statusbar::setDriveTrack(unsigned int drive, unsigned int half_track)
+{
+	// half_track: Twice the value of the head location. 18.0 is 36, while 18.5 would be 37.
+	if (drive > 3)
+		return;
+
+	if (half_track < 20)
+		snprintf(m_drives[drive].track, 8, " %.1lf", half_track / 2.0); 
+	else
+		snprintf(m_drives[drive].track, 8, "%.1lf", half_track / 2.0); 
+}
+
+void Statusbar::setDriveDiskPresence(int drive, int disk_in)
+{
+	m_driveDiskMask = disk_in? m_driveDiskMask | m_drives[drive].bitmask: 
+		                  m_driveDiskMask & ~m_drives[drive].bitmask;
+
+	if (!disk_in)
+		sprintf(m_drives[drive].track, "00.0"); 
+}
+
 bool Statusbar::isUpdated()
 {
 	return m_updated;
+}
+
+void Statusbar::notifyReset()
+{
+	// Computer was reset.
+
+	// Turn off tape motor.
+	m_tapeMotor = 0;
+	// Set tape control to 'Stop'.
+	setTapeControl(0);
 }
 
 void Statusbar::loadResources()

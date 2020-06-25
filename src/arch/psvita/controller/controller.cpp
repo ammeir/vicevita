@@ -48,6 +48,7 @@ extern "C" {
 #include "attach.h"
 #include "tape.h"
 #include "datasette.h"
+#include "drive.h"
 #include "c64cartsystem.h"
 #include "joystick.h"
 #include "keyboard.h"
@@ -109,7 +110,6 @@ extern "C" void PSV_ScanControls()
 {
 	static ControlPadMap* maps[16];
 	int size = 0;
-
 
 	// Goto main menu at boot time. There must be a better place to implement this.
 	if (gs_bootTime){
@@ -188,6 +188,7 @@ extern "C" void PSV_ScanControls()
 		case 137: // Reset computer
 			if (!ui_emulation_is_paused()){ // Reseting in pause state causes freeze.
 				machine_trigger_reset(gs_machineResetMode);
+				keyboard_clear_keymatrix(); // Empty the key buffer.
 				gs_view->notifyReset();
 			}
 			break;
@@ -229,9 +230,19 @@ extern "C" void PSV_ApplySettings()
 	// Enable general mechanisms for fast disk/tape emulation.
 	resources_set_int(VICE_RES_VIRTUAL_DEVICES, 1);
 
-	// This is very important for ReSID performance.
+	// This is VERY important for ReSID performance.
 	// Any other value brings the emulation to almost complete standstill.
-	resources_set_int(VICE_RES_SID_RESID_SAMPLING,0);
+	resources_set_int(VICE_RES_SID_RESID_SAMPLING, 0);
+
+	// Activate all four drives. 
+	// 1542 = CBM 1541-II
+	resources_set_int("Drive8Type", 1542);
+	resources_set_int("Drive9Type", 1542);
+	resources_set_int("Drive10Type", 1542);
+	resources_set_int("Drive11Type", 1542);
+
+	// Uncomment if you want to inject prg into RAM.
+	// resources_set_int("AutostartPrgMode", 1);
 
 	// Apply all user defined settings.
 	gs_view->applyAllSettings();
@@ -263,13 +274,16 @@ extern "C" void	PSV_NotifyTapeCounter(int counter)
 }
 
 extern "C" void	PSV_NotifyTapeControl(int control)
-{
-	gs_view->setTapeControl(control);
+{	
+	// We can ignore T64 files here. Tape control status only works correctly with TAP files.
+	if (isTapOnTape()){
+		gs_view->setTapeControl(control);
+	}
 }
 
 extern "C" void	PSV_NotifyDriveStatus(int drive, int led)
 {
-	gs_view->setDriveStatus(drive, led);
+	gs_view->setDriveLed(drive, led);
 }
 
 extern "C" void	PSV_NotifyDriveContent(int drive, const char* image)
@@ -282,6 +296,11 @@ extern "C" void PSV_NotifyTapeMotorStatus(int motor)
 	gs_view->setTapeMotorStatus(motor);
 }
 
+extern "C" void	PSV_NotifyDriveTrack(unsigned int drive, unsigned int track)
+{
+	gs_view->setDriveTrack(drive, track);
+}
+
 extern "C" int	PSV_ShowMessage(const char* msg, int msg_type)
 {
 	return gs_view->showMessage(msg, msg_type);
@@ -290,11 +309,13 @@ extern "C" int	PSV_ShowMessage(const char* msg, int msg_type)
 extern "C" void	PSV_NotifyReset()
 {
 	gs_view->notifyReset();
+	gs_scanScreenPressPlayTimer = 0;
+	gs_scanScreenLoadingTimer = 0;
+	gs_scanScreenReadyTimer = 0;
 }
 
 Controller::Controller()
 {
-
 }
 
 Controller::~Controller()
@@ -304,39 +325,39 @@ Controller::~Controller()
 void Controller::init(View* view)
 {
 	gs_view = view;
-	for (int i=0; i<4; ++i) m_zipFileSlots.push_back("");
+	for (int i=0; i<7; ++i) m_zipFileSlots.push_back("");
 }
 
-int Controller::loadFile(load_type_e load_type, const char* file, const char* program_name, int index, const char* target_file)
+int Controller::loadFile(int load_type, const char* file, int index)
 {
 	//PSV_DEBUG("Controller::loadFile");
 	//PSV_DEBUG("Image: %s", file);
-	//PSV_DEBUG("Program name: %s", program_name);
 	//PSV_DEBUG("index: %d", index);
 	
-
-	if (!file)
-		return -1;
-
 	int ret = 0;
 
 	switch (load_type){
-	case AUTO_DETECT_LOAD:
+	case CTRL_AUTO_DETECT_LOAD:
 		{
-
-		file = extractFile(file);
 
 		if (!file)
 			return -1;
 
-		int device = getImageType(file);
+		const char* image_file = extractFile(file);
+
+		if (!image_file)
+			return -1;
+		
+		int image_type = getImageType(image_file);
 
 		// Remove any attached cartridge or it will be loaded instead.
 		cartridge_detach_image(-1);
-		// This is not necessary but we also remove any attached disk or tape.
-		detachTapeImage();
-		detachDriveImage();
 
+		// This is not necessary but we also remove any attached disk or tape.
+		//detachTapeImage();
+		//detachDriveImage(8);
+
+		
 		// Sometimes a tape won't run without reseting the datasette.
 		datasette_control(DATASETTE_CONTROL_RESET);
 	
@@ -348,7 +369,7 @@ int Controller::loadFile(load_type_e load_type, const char* file, const char* pr
 
 		// Cartridge won't load if 'CartridgeReset' is disabled. Enable it temporarily.
 		int cartridge_reset = 1;
-		if (device == IMAGE_CARTRIDGE){
+		if (image_type == IMAGE_CARTRIDGE){
 			resources_get_int(VICE_RES_CARTRIDGE_RESET, &cartridge_reset);
 			if (!cartridge_reset)
 				resources_set_int(VICE_RES_CARTRIDGE_RESET, 1);
@@ -356,88 +377,112 @@ int Controller::loadFile(load_type_e load_type, const char* file, const char* pr
 	
 		gtShowMsgBoxNoBtn("Loading...");
 
-		ret = autostart_autodetect(file, NULL, index, AUTOSTART_MODE_RUN);
+		ret = autostart_autodetect(image_file, NULL, index, AUTOSTART_MODE_RUN);
 
 		// Restore old value.
 		if (!cartridge_reset)
 			resources_set_int(VICE_RES_CARTRIDGE_RESET, 0);
 
+		if (ret < 0)
+			return - 1;
+
+		// Notify disk presence (statusbar). Autodetect always uses drive 8.
+		if (image_type == IMAGE_DISK || image_type == IMAGE_PROGRAM){
+			const char* image = file_system_get_disk_name(8);
+			int disk_in = image? 1:0;
+			gs_view->setDriveDiskPresence(0, disk_in);
+		}
+
+		// Sync the devices now so we don't get a freezing effect when going to devices menu.
+		syncPeripherals(); 
+
+		ret = image_type;
+		
 		break;
 		}
-	case CART_LOAD:
-		if (cartridge_attach_image(CARTRIDGE_CRT, file) < 0)
-			return -1;
-		//g_game_file = file;
+	case CTRL_CART_LOAD:
+		// Cart is already in the slot. Reset will load the game.
 		pauseEmulation(false);
+		machine_trigger_reset(MACHINE_RESET_MODE_HARD);
+		gs_view->notifyReset();
 		break;
-	case DISK_LOAD:
+	case CTRL_DISK_LOAD:
 		{
+
+		if (isCpuInRam()) 
+			return -1; 
+
 		// This prevents sound loss when loading game when previous load hasn't finished.
 		resources_set_int(VICE_RES_WARP_MODE, 0); 
 
-		char* prog_name = NULL;
-		string str_prog_name;
+		char* prg_name = NULL;
+		string str_prg_name;
 
-		image_contents_t *contents = diskcontents_filesystem_read(file);
+		int drive_id = getCurrentDriveId();
+		const char* image = file_system_get_disk_name(drive_id);
+
+		image_contents_t *contents = diskcontents_filesystem_read(image);
 		if (contents) {
-			prog_name = image_contents_filename_by_number(contents, index);
+			prg_name = image_contents_filename_by_number(contents, index);
 			image_contents_destroy(contents);
 		}
 
 		// Remove 0xa0 characters from file names.
-		if (prog_name){
-			str_prog_name = prog_name;
-			size_t pos = str_prog_name.find_first_of(0xa0);
+		if (prg_name){
+			str_prg_name = prg_name;
+			size_t pos = str_prg_name.find_first_of(0xa0);
 			if (pos != string::npos){
-				str_prog_name = str_prog_name.substr(0, pos);
+				str_prg_name = str_prg_name.substr(0, pos);
 			}
-			lib_free(prog_name);
+			lib_free(prg_name);
 		}
 
-		gs_loadProgramName = !str_prog_name.empty()? str_prog_name.c_str(): "*";
-		gs_loadImageName = file;
-		setPendingAction(CTRL_ACTION_LOAD_DISK);
+		gs_loadProgramName = !str_prg_name.empty()? str_prg_name.c_str(): "*";
+		setPendingAction(CTRL_ACTION_KBDCMD_LOAD_DISK);
 		pauseEmulation(false);
 		break;
 		}
-	case TAPE_LOAD:
+	case CTRL_TAPE_LOAD:
 		{
 		if (!tape_image_dev1)
 			return -1;
+
+		if (isCpuInRam()) 
+			return -1; 
       
-		char* prog_name = NULL;
-		string str_prog_name;
+		string str_prg_name;
 
-	
 		if (tape_image_dev1->type == TAPE_TYPE_TAP){
-			// TAP files.
-			tape_seek_to_file(tape_image_dev1, index);
+			if (index > 0) index--; // Remember the header.
+			tape_seek_to_file(tape_image_dev1, index); 
 		}
-		else{
-			// T64 files. 
+		else if (tape_image_dev1->type == TAPE_TYPE_T64){ 
+			char* prg_name = NULL;
+			const char* image_name = (const char*)tape_image_dev1->name;
+			if (!image_name) image_name = file; // Just make sure it's not null.
 			
-			// Find the name of the program file. 
-			
-			//image_contents_s* contents = tapecontents_read(file);
-			//if (contents) {
-			//	prog_name = image_contents_filename_by_number(contents, index+1); // Indexes start at 1.
-			//	image_contents_destroy(contents);
-			//}
+			// Find the prg file name. 
+			image_contents_s* contents = tapecontents_read(image_name);
+			if (contents) {
+				prg_name = image_contents_filename_by_number(contents, index); // T64 contents start at index 1.
+				image_contents_destroy(contents);
+			}
 
-			//// Remove 0xa0 characters from file names.
-			//if (prog_name){
-			//	str_prog_name = prog_name;
-			//	size_t pos = str_prog_name.find_first_of(0xa0);
-			//	if (pos != string::npos){
-			//		str_prog_name = str_prog_name.substr(0, pos);
-			//	}
-			//	lib_free(prog_name);
-			//}
+			// Remove 0xa0 characters from file names.
+			if (prg_name){
+				str_prg_name = prg_name;
+				size_t pos = str_prg_name.find_first_of(0xa0);
+				if (pos != string::npos){
+					str_prg_name = str_prg_name.substr(0, pos);
+				}
+				lib_free(prg_name);
+			}
 
-			if (index > 0){
-				tape_seek_to_file(tape_image_dev1, index-1);
+			if (index > 1){
+				tape_seek_to_file(tape_image_dev1, index-2); // Read below why the subtraction.
 			}
 			else{
+				// Indexes 0 and 1 refer to header and first file.
 				// There seems to be a bug when trying to seek to the first file in a t64 archive. 
 				// Using index 0 won't give you the first file but the second.
 				// The workaround here is to use the 'total available file records' - 1, 
@@ -447,10 +492,12 @@ int Controller::loadFile(load_type_e load_type, const char* file, const char* pr
 				tape_seek_to_file(tape_image_dev1, size-1);
 			}
 		}
+		else{
+			return -1;
+		}
 	
-		gs_loadProgramName = str_prog_name.c_str();
-		gs_loadImageName = file;
-		setPendingAction(CTRL_ACTION_LOAD_TAPE);
+		gs_loadProgramName = str_prg_name.c_str();
+		setPendingAction(CTRL_ACTION_KBDCMD_LOAD_TAPE);
 		pauseEmulation(false);
 		break;
 		}
@@ -464,10 +511,6 @@ int Controller::loadState(const char* file)
 	// Prevent sound loss when loading a state when previous load hasn't finished.
 	resources_set_int(VICE_RES_WARP_MODE, 0);
 	
-	//char* sfile = lib_stralloc(file);
-	//ui_load_snapshot(sfile);
-	//return 1;
-
 	string cartridge;
 	const char* file_name = cartridge_get_file_name(cart_getid_slotmain());
 	
@@ -489,8 +532,6 @@ int Controller::loadState(const char* file)
 	}
 
 	return ret;
-
-	//return machine_read_snapshot((char*)file, 0);	
 }
 
 int Controller::saveState(const char* file_name)
@@ -660,6 +701,8 @@ void Controller::setModelProperty(int key, const char* value)
 		setSidModel(value);break;
 	case VICII_MODEL:
 		setViciiModel(value);break;
+	case DRIVE_STATUS:
+		setDriveStatus(value);break;
 	case DRIVE_TRUE_EMULATION:
 		setDriveEmulation(value);break;
 	case DRIVE_SOUND_EMULATION:
@@ -673,6 +716,11 @@ void Controller::setModelProperty(int key, const char* value)
 	}
 }
 
+void Controller::getDiskImageFile(int drive, const char** image)
+{
+	*image = file_system_get_disk_name(drive+8);
+}
+
 void Controller::getImageFileContents(int peripheral, const char* image, const char*** values, int* values_size)
 {
 	*values = NULL;
@@ -680,11 +728,13 @@ void Controller::getImageFileContents(int peripheral, const char* image, const c
 	image_contents_t* content = NULL;
 
 
-	if (peripheral == DRIVE8 || peripheral == DATASETTE){
+	if (peripheral == DRIVE || peripheral == DATASETTE){
 		// Retrieve disk/tape contents
 
-		if (peripheral == DRIVE8)
-			content = diskcontents_read(image, 8);
+		if (peripheral == DRIVE){
+			int drive_id = getCurrentDriveId();
+			content = diskcontents_read(image, drive_id);
+		}
 		else if (peripheral == DATASETTE)
 			content = tapecontents_read(image);
 
@@ -694,23 +744,26 @@ void Controller::getImageFileContents(int peripheral, const char* image, const c
 		image_contents_file_list_t* entry = content->file_list;
 
 		// Get list size;
-		int size = 0;
+		int list_size = 0;
 		while (entry){
-			size++;
+			list_size++;
 			entry = entry->next;
 		}
 
-		if (!size)
+		if (!list_size)
 			return;
-		
-		char** p = new char*[size];
-		*values = (const char**)p;
-		*values_size = size;
+
+		list_size++; // Add one for header entry.
+		*values = new const char*[list_size];
+		*values_size = list_size;
+		const char** p = *values;
+
+		*p++ = image_contents_to_string(content, 1); // Header line.
 		entry = content->file_list;
-		for (int i=0; i<size; ++i){
-			*p = image_contents_file_to_string(entry, 1); // allocates memory from heap.
+
+		for (int i=0; i<list_size-1; ++i){
+			*p++ = image_contents_file_to_string(entry, 1); // Allocates memory from heap. 
 			entry = entry->next;
-			p++;
 		}
 	}
 
@@ -930,6 +983,16 @@ void Controller::setColorPalette(const char* val)
 	}
 }
 
+void Controller::setDriveStatus(const char* val)
+{
+	int drive_id = getCurrentDriveId();
+
+	if (!strcmp(val, "Active"))
+		resources_set_int_sprintf("Drive%dType", 1542, drive_id);
+	else if (!strcmp(val, "Not active"))
+		resources_set_int_sprintf("Drive%dType", DRIVE_TYPE_NONE, drive_id);
+}
+
 void Controller::setDriveEmulation(const char* val)
 {
 	// Enable/Disable hardware-level emulation of disk drives.
@@ -986,14 +1049,16 @@ void Controller::setMachineResetMode(const char* val)
 		gs_machineResetMode = MACHINE_RESET_MODE_SOFT;
 }
 
-int Controller::attachDriveImage(const char* val)
+int Controller::attachDriveImage(int drive, const char* image)
 {
-	// Currently only drive 8 is supported
-	if(!strcmp(val, "Empty"))
+	if(!strcmp(image, "Empty"))
 		return -1;
 
-	if (file_system_attach_disk(8, val) < 0)
+	if (file_system_attach_disk(drive, image) < 0)
 		return -1;
+
+	// Notify disk presence to statusbar.
+	gs_view->setDriveDiskPresence(drive-8, 1);
 
 	return 0;
 }
@@ -1020,9 +1085,12 @@ int Controller::attachCartridgeImage(const char* val)
 	return 0;
 }
 
-void Controller::detachDriveImage()
+void Controller::detachDriveImage(int drive)
 {
-	file_system_detach_disk(8);
+	file_system_detach_disk(drive);
+
+	// Notify disk presence to statusbar.
+	gs_view->setDriveDiskPresence(drive-8, 0);
 }
 
 int Controller::detachTapeImage()
@@ -1045,24 +1113,30 @@ void Controller::syncSetting(int key)
 {
 	// Sync setting with VICE.
 
-	//string value;
+	//PSV_DEBUG("syncSetting(), key=%d", key);
+
 	const char* image_file = NULL;
 	const char* key_value;
 	const char* key_value2;
 	const char** value_list;
 	int list_size = 0;
-
-
+	
 	switch (key){
-	case DRIVE8:
-		// Check if drive has image attached.
-		image_file = file_system_get_disk_name(8);
+	case DRIVE:
+	case DATASETTE:
+
+		// Check if device has image attached.
+		if (key == DRIVE){
+			image_file = file_system_get_disk_name(getCurrentDriveId());
+		}else{
+			image_file = tape_get_file_name();
+		}
 
 		// Get the listbox values in settings
 		gs_view->getSettingValues(key, &key_value, &key_value2, &value_list, &list_size);
 
 		if (!image_file){
-			// No disk image attached. 
+			// No image attached. 
 			// Deallocate old listbox values if any.
 			if (value_list && list_size){
 				const char** p = value_list;
@@ -1073,38 +1147,58 @@ void Controller::syncSetting(int key)
 			}
 
 			gs_view->onSettingChanged(key,"Empty","",0,0,15);
+			break;
+		}
+		
+		if (!strcmp(key_value, "Empty")){
+			//PSV_DEBUG("Image is attached to device but is not showing in settings");		
+			// Image is attached to device but is not showing in settings.
+			// Get image contents and populate listbox.
+			getImageFileContents(key, image_file, &value_list, &list_size);
+			if (list_size){
+				gs_view->onSettingChanged(key, value_list[0], image_file, value_list, list_size, 15);
+			}
 		}
 		else{
-			if (!strcmp(key_value, "Empty")){
-				// Image is attached to device but is not showing in settings.
-				// Get drive contents and populate listbox.
-				getImageFileContents(key, image_file, &value_list, &list_size);
-				if (list_size){
-					gs_view->onSettingChanged(key, value_list[0], image_file, value_list, list_size, 15);
-				}
+			//PSV_DEBUG("Device has attachement and something is showing in settings");
+			// Device has attachement and something is showing in settings.
+			// Do nothing if image is current.
+			if (!strcmp(key_value2, image_file)){
+				return;
 			}
-			else{
-				// Device has attachement and something is showing in settings.
-				// Do nothing if image is current.
-				if (!strcmp(key_value2, image_file)){
-					return;
+			// New image attached. First deallocate old list values.
+			if (value_list && list_size){
+				const char** p = value_list;
+				for (int i=0; i<list_size; ++i){
+					lib_free(*p++);
 				}
-				// New disk image attached. First deallocate old list values.
-				if (value_list && list_size){
-					const char** p = value_list;
-					for (int i=0; i<list_size; ++i){
-						lib_free(*p++);
-					}
-					delete[] value_list;
-				}
+				delete[] value_list;
+			}
 
-				getImageFileContents(key, image_file, &value_list, &list_size);
-				if (list_size){
-					gs_view->onSettingChanged(key, value_list[0], image_file, value_list, list_size, 15);
-				}	
-			}
+			getImageFileContents(key, image_file, &value_list, &list_size);
+			if (list_size){
+				gs_view->onSettingChanged(key, value_list[0], image_file, value_list, list_size, 15);
+			}	
 		}
 		break;
+	case DRIVE_STATUS:
+		{
+		int drive_type;
+		int drive_id = getCurrentDriveId();
+		
+		if (resources_get_int_sprintf("Drive%dType", &drive_type, drive_id) < 0){
+			return;
+		}
+
+		string str_val;
+		if (drive_type == DRIVE_TYPE_NONE)
+			str_val = "Not active";
+		else
+			str_val = "Active";
+
+		gs_view->onSettingChanged(key, str_val.c_str(),0,0,0,1);
+		break;
+		}
 	case DRIVE_TRUE_EMULATION:
 		{
 		int val; 
@@ -1127,48 +1221,6 @@ void Controller::syncSetting(int key)
 		
 		str_val = val? "Enabled": "Disabled";
 		gs_view->onSettingChanged(key, str_val.c_str(),0,0,0,1);
-		break;
-		}
-	case DATASETTE:
-		{
-		image_file = tape_get_file_name();
-
-		// Get the listbox values in settings
-		gs_view->getSettingValues(key, &key_value, &key_value2, &value_list, &list_size);
-
-		if (!image_file){
-			// No tape image attached. Deallocate old listbox values if any.
-			if (list_size > 0){
-				const char** p = value_list;
-				for (int i=0; i<list_size; ++i){
-					lib_free(*p++);
-				}
-				delete[] value_list;
-			}
-
-			gs_view->onSettingChanged(key,"Empty","",0,0,15);
-			return;
-		}
-
-		if (!strcmp(key_value2, image_file)){
-			// Same tape image attached. Do nothing.
-			return;
-		}
-
-		// New tape image attached. Delete old list.
-		if (list_size > 0){
-			const char** p = value_list;
-			for (int i=0; i<list_size; ++i){
-				lib_free(*p++);
-			}
-			delete[] value_list;
-		}
-
-		string fname = getFileNameFromPath(image_file);
-		
-		// VICE is painfully slow at retrieving tape content. 
-		// To avoid a freezing effect just set the image name as the key value.
-		gs_view->onSettingChanged(key, fname.c_str(), image_file,0,0,15);
 		break;
 		}
 	case DATASETTE_RESET_WITH_CPU:
@@ -1327,7 +1379,9 @@ void Controller::syncSetting(int key)
 
 void Controller::syncPeripherals()
 {
-	syncSetting(DRIVE8);
+
+	syncSetting(DRIVE);
+	syncSetting(DRIVE_STATUS);
 	syncSetting(DRIVE_TRUE_EMULATION);
 	syncSetting(DRIVE_SOUND_EMULATION);
 	syncSetting(DATASETTE);
@@ -1464,12 +1518,6 @@ void Controller::setCartControl(int action)
 	}
 }
 
-void Controller::strToUpperCase(string& str)
-{
-   for (std::string::iterator p = str.begin(); p != str.end(); ++p)
-       *p = toupper(*p);
-}
-
 void Controller::getViewport(ViewPort* vp, bool borders)
 {
 	struct video_canvas_s* canvas;
@@ -1490,19 +1538,21 @@ void Controller::getViewport(ViewPort* vp, bool borders)
 	}
 }
 
-int Controller::attachImage(int device, const char* image, const char** curr_values, int curr_val_size)
+int Controller::attachImage(int device, const char* file, const char** curr_values, int curr_val_size)
 {
-	image = extractFile(image);
+	int drive_id = getCurrentDriveId();
 
-	if (!image)
+	const char* image_file = extractFile(file, drive_id);
+
+	if (!image_file)
 		return -1;
 
 	// Check if device is correct.
-	int type = getImageType(image);
+	int type = getImageType(image_file);
 	switch (type){
 	case IMAGE_DISK:
 	case IMAGE_PROGRAM:
-		if (device != DRIVE8) return -1;
+		if (device != DRIVE) return -1;
 		break;
 	case IMAGE_TAPE:
 		if (device != DATASETTE) return -1;
@@ -1516,56 +1566,28 @@ int Controller::attachImage(int device, const char* image, const char** curr_val
 	if (curr_values && curr_val_size > 0)
 		detachImage(device, curr_values, curr_val_size);
 	
-	image_contents_t* content = NULL;
-	
-
-	switch (device){
-	case DRIVE8:
-		if (attachDriveImage(image) < 0) 
-			return -1;
-		content = diskcontents_read(image, 8);
-		break;
-	case DATASETTE:
-		if (attachTapeImage(image) < 0) 
-			return -1;
-		content = tapecontents_read(image);
-		break;
-	case CARTRIDGE:
-		if (attachCartridgeImage(image) < 0)
-			return -1;
-		break;
-	}
-
 	const char** list_values = 0;
 	int list_size = 0;
 
-	if(content){
-		// Retrieve content list.
-		image_contents_file_list_t* entry = content->file_list;
-	
-		// Get list size;
-		while (entry){
-			list_size++;
-			entry = entry->next;
-		}
-
-		if (list_size){
-			list_values = new const char*[list_size];
-			const char** p = list_values;
-			entry = content->file_list;
-			for (int i=0; i<list_size; ++i){
-				*p = image_contents_file_to_string(entry, 1); // allocates memory from heap. 
-				entry = entry->next;
-				p++;
-			}
-		}
+	switch (device){
+	case DRIVE:
+		if (attachDriveImage(drive_id, image_file) < 0) 
+			return -1;
+		getImageFileContents(device, image_file, &list_values, &list_size);
+		break;
+	case DATASETTE:
+		if (attachTapeImage(image_file) < 0) 
+			return -1;
+		getImageFileContents(device, image_file, &list_values, &list_size);
+		break;
+	case CARTRIDGE:
+		if (attachCartridgeImage(image_file) < 0)
+			return -1;
+		break;
 	}
 
-	string value = list_size? list_values[0]: getFileNameFromPath(image).c_str();
-	gs_view->onSettingChanged(device, value.c_str(), image, list_values, list_size, 15);
-
-	if (content)
-		image_contents_destroy(content);
+	string content_value = list_size? list_values[0]: getFileNameFromPath(image_file).c_str();
+	gs_view->onSettingChanged(device, content_value.c_str(), image_file, list_values, list_size, 15);
 
 	return 0;
 }
@@ -1573,8 +1595,8 @@ int Controller::attachImage(int device, const char* image, const char** curr_val
 void Controller::detachImage(int peripheral, const char** values, int size)
 {
 	switch (peripheral){
-	case DRIVE8:
-		detachDriveImage();
+	case DRIVE:
+		detachDriveImage(getCurrentDriveId());
 		break;
 	case DATASETTE:
 		detachTapeImage();
@@ -1596,115 +1618,135 @@ void Controller::detachImage(int peripheral, const char** values, int size)
 	gs_view->onSettingChanged(peripheral,"Empty","",0,0,15);
 }
 
-const char* Controller::extractFile(const char *path)
+const char* Controller::extractFile(const char *path, int drive)
 {
-  const char* game_path = path;
-  char* file_buffer = NULL;
-  int file_size = 0;
+	//PSV_DEBUG("Controller::extractFile()");
+	const char* game_path = path;
+	char* file_buffer = NULL;
+	int file_size = 0;
 
-  if (isZipFile(path)){
+	if (isFileOfType(path, "ZIP")){
 
-    char archived_file[512];
-	int image_type;
-    unzFile zipfile = NULL;
-    unz_global_info gi;
-    unz_file_info fi;
+		char archived_file[512];
+		int image_type;
+		unzFile zipfile = NULL;
+		unz_global_info gi;
+		unz_file_info fi;
 
-    // Open Zip for reading
-    if (!(zipfile = unzOpen(path))){
-		return NULL;
-	}
-
-    // Get Zip file information
-    if (unzGetGlobalInfo(zipfile, &gi) != UNZ_OK){
-		unzClose(zipfile);
-		return NULL;
-    }
-
-    const char *extension;
-    int i, j;
-
-	// Get the first file in the archive.
-	for (i = 0; i < (int)gi.number_entry; i++){
-		// Get name of the archived file
-		if (unzGetCurrentFileInfo(zipfile, &fi, archived_file, sizeof(archived_file), NULL, 0, NULL, 0) != UNZ_OK){
-			unzClose(zipfile);
+		// Open Zip for reading
+		if (!(zipfile = unzOpen(path))){
 			return NULL;
 		}
 
-		image_type = getImageType(archived_file);
-		file_size = fi.uncompressed_size;
-		
-		if (file_size > 0 && 
-			image_type == IMAGE_DISK || 
-			image_type == IMAGE_TAPE || 
-			image_type == IMAGE_CARTRIDGE || 
-			image_type == IMAGE_PROGRAM){
-
-			// Supported file found. 
-				
-			// Open file for reading
-			if(unzOpenCurrentFile(zipfile) != UNZ_OK){
-				unzClose(zipfile); 
-				return NULL;
-			}
-
-			file_buffer = new char[file_size];
-				
-			unzReadCurrentFile(zipfile, file_buffer, file_size);
-			unzCloseCurrentFile(zipfile);
+		// Get Zip file information
+		if (unzGetGlobalInfo(zipfile, &gi) != UNZ_OK){
 			unzClose(zipfile);
+			return NULL;
+		}
+		
+		const char *extension;
+		int i, j;
 
-			FileExplorer fileExp;
-
-			if (m_zipFileSlots.size() < image_type + 1){
-				delete[] file_buffer;
-				return NULL;
-			}
-
-			// Delete previous temp image file.
-			if (!m_zipFileSlots[image_type].empty()){
-				fileExp.deleteFile(m_zipFileSlots[image_type].c_str());
-			}
-
-			// Define new temp image file name.
-			m_zipFileSlots[image_type] = TMP_DIR;
-			m_zipFileSlots[image_type].append(archived_file);
-	
-			// Create image file from the buffer data.
-			FILE *file = fopen(m_zipFileSlots[image_type].c_str(), "w");
-			if (!file){
-				m_zipFileSlots[image_type].clear();
-				return NULL;
-			}
-			if (fwrite(file_buffer, 1, file_size, file) < file_size){
-				fclose(file);
-				m_zipFileSlots[image_type].clear();
-				return NULL;
-			}
-			fclose(file);
-
-			game_path = m_zipFileSlots[image_type].c_str();
-
-			delete[] file_buffer;
-
-			return game_path;
-        }
-	
-		// Go to the next file in the archive
-		if (i + 1 < (int)gi.number_entry){
-			if (unzGoToNextFile(zipfile) != UNZ_OK){
+		// Get the first file in the archive.
+		for (i = 0; i < (int)gi.number_entry; i++){
+			// Get name of the archived file
+			if (unzGetCurrentFileInfo(zipfile, &fi, archived_file, sizeof(archived_file), NULL, 0, NULL, 0) != UNZ_OK){
 				unzClose(zipfile);
 				return NULL;
 			}
+
+			image_type = getImageType(archived_file);
+			file_size = fi.uncompressed_size;
+		
+			if (file_size > 0 && 
+				image_type == IMAGE_DISK || 
+				image_type == IMAGE_TAPE || 
+				image_type == IMAGE_CARTRIDGE || 
+				image_type == IMAGE_PROGRAM){
+
+				// Supported file found. 
+				
+				// Open file for reading
+				if(unzOpenCurrentFile(zipfile) != UNZ_OK){
+					unzClose(zipfile); 
+					return NULL;
+				}
+
+				file_buffer = new char[file_size];
+				
+				unzReadCurrentFile(zipfile, file_buffer, file_size);
+				unzCloseCurrentFile(zipfile);
+				unzClose(zipfile);
+
+				FileExplorer fileExp;
+
+				int zip_slot;
+
+				// Find the right zip slot. Note that disk image has 4 slots, one for each drive.
+				if (image_type == IMAGE_DISK)
+					zip_slot = (drive == 8)? IMAGE_DISK: IMAGE_DISK+(drive-8);
+				else
+					zip_slot = image_type;
+
+				if (m_zipFileSlots.size() < zip_slot + 1){
+					delete[] file_buffer;
+					return NULL;
+				}
+
+				// Delete previous temp image file.
+				if (!m_zipFileSlots[zip_slot].empty()){
+					fileExp.deleteFile(m_zipFileSlots[zip_slot].c_str());
+				}
+
+				// Define new temp image file path. 
+				// Disk images are saved in drive folders (8-11) in case we have identical file names in different drives.
+				if (image_type == IMAGE_DISK){
+					switch (drive){
+					case 8:  m_zipFileSlots[zip_slot] = TMP_DRV8_DIR; break;
+					case 9:  m_zipFileSlots[zip_slot] = TMP_DRV9_DIR; break;
+					case 10: m_zipFileSlots[zip_slot] = TMP_DRV10_DIR; break;
+					case 11: m_zipFileSlots[zip_slot] = TMP_DRV11_DIR; break;
+					}
+				}
+				else
+					m_zipFileSlots[zip_slot] = TMP_DIR;
+
+				m_zipFileSlots[zip_slot].append(archived_file);
+	
+				// Create image file from the buffer data.
+				FILE *file = fopen(m_zipFileSlots[zip_slot].c_str(), "w");
+				if (!file){
+					m_zipFileSlots[zip_slot].clear();
+					return NULL;
+				}
+				if (fwrite(file_buffer, 1, file_size, file) < file_size){
+					fclose(file);
+					m_zipFileSlots[zip_slot].clear();
+					return NULL;
+				}
+				fclose(file);
+
+				game_path = m_zipFileSlots[zip_slot].c_str();
+
+				delete[] file_buffer;
+
+				return game_path;
+			}
+	
+			// Go to the next file in the archive
+			if (i + 1 < (int)gi.number_entry){
+				if (unzGoToNextFile(zipfile) != UNZ_OK){
+					unzClose(zipfile);
+					return NULL;
+				}
+			}
 		}
-    }
 
-    // No supported files found
-    return NULL;
-  }
+		// No supported files found
+		return NULL;
+	}
 
-  return game_path;
+	return game_path;
 }
 
 static void toggleJoystickPorts()
@@ -1743,75 +1785,104 @@ static void	checkPendingActions()
 			video_psv_menu_show();
 	}
 	if (gs_pauseTimer > 0){
-		if (--gs_pauseTimer == 0){
-			ui_pause_emulation(1);
-			gs_view->displayPaused(1);
-			gs_view->setFPSCount(0,0,0);
-			gs_view->updateView();
-		}
+		if (--gs_pauseTimer != 0) return;
+		ui_pause_emulation(1);
+		gs_view->displayPaused(1);
+		gs_view->setFPSCount(0,0,0);
+		gs_view->updateView();
 	}
 	if (gs_loadDiskTimer > 0){
-		if (--gs_loadDiskTimer == 0){
-			if (!isCpuInRam()){ // We want to be in ROM.
-				char* cmd = lib_msprintf("LOAD\"%s\",8,1:\r", gs_loadProgramName.c_str());
-				kbdbuf_feed(cmd);
-				lib_free(cmd);
-				// Schedule screen scan command.
-				setPendingAction(CTRL_ACTION_SCAN_SCREEN_READY);
-			}
-		}
+		if (--gs_loadDiskTimer != 0) return;
+		if (isCpuInRam()) return; // The routine responsible for writing text on screen is in ROM.
+
+		int drive_id = getCurrentDriveId();
+		char* cmd = lib_msprintf("LOAD\"%s\",%d,1:\r", gs_loadProgramName.c_str(), drive_id);
+		kbdbuf_feed(cmd);
+		lib_free(cmd);
+		// Schedule screen scan for 'READY.' string.
+		setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
 	}
 	if (gs_loadTapeTimer > 0){
-		if (--gs_loadTapeTimer == 0){
-			if (!isCpuInRam()){ // We want to be in ROM.
-				//PSV_DEBUG("Type LOAD command...");
-				if (gs_loadProgramName.empty())
-					kbdbuf_feed("LOAD:\r");
-				else{
-					char* cmd = lib_msprintf("LOAD\"%s\":\r", gs_loadProgramName.c_str());
-					kbdbuf_feed(cmd);
-					lib_free(cmd);
-				}
-
-				datasette_control(DATASETTE_CONTROL_START);
-				setPendingAction(CTRL_ACTION_SCAN_SCREEN_READY);
-			}
+		if (--gs_loadTapeTimer != 0) return;
+		if (isCpuInRam()) return; 
+		
+		if (gs_loadProgramName.empty())
+			kbdbuf_feed("LOAD:\r");
+		else{
+			char* cmd = lib_msprintf("LOAD\"%s\":\r", gs_loadProgramName.c_str());
+			kbdbuf_feed(cmd);
+			lib_free(cmd);
 		}
+
+		setPendingAction(CTRL_ACTION_SCANSCR_PRESSPLAYONTAPE);
 	}
 	if (gs_kbdCmdRunTimer > 0){
-		if (--gs_kbdCmdRunTimer == 0){
-			kbdbuf_feed("RUN\r");
-			// Update g_game_file so we can see the save states.
-			g_game_file = gs_loadImageName;
-			// Load game specific settings.
-			gs_view->updateSettings();
+		if (--gs_kbdCmdRunTimer != 0) return;
+		kbdbuf_feed("RUN\r");
+	}
+	if (gs_scanScreenPressPlayTimer > 0){
+		if (--gs_scanScreenPressPlayTimer != 0) return;
+		int ret = scanScreen("PRESS PLAY ON TAPE", CURSOR_NOWAIT_BLINK);
+		
+		switch (ret){
+		case 0: // Printed on screen
+			//PSV_DEBUG("PRESS PLAY ON TAPE printed on screen!"); 
+			datasette_control(DATASETTE_CONTROL_START);
+			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
+			break;
+		case 1: // Not printed on screen
+			//PSV_DEBUG("PRESS PLAY ON TAPE not printed on screen!");
+			// Tape started loading without 'PRESS PLAY ON TAPE' text.
+			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
+			break;
+		case 2: // Waiting for print
+			if (isCpuInRam()) return;
+			//PSV_DEBUG("Waiting for PRESS PLAY ON TAPE print...");
+			gs_scanScreenPressPlayTimer = 50;
+			break;
+		}
+	}
+	if (gs_scanScreenLoadingTimer > 0){
+		if (--gs_scanScreenLoadingTimer != 0) return;
+		int ret = scanScreen("LOADING", CURSOR_NOWAIT_BLINK);
+
+		switch (ret){
+		case 0:
+			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
+			break;
+		case 1:
+			//PSV_DEBUG("LOADING not printed on screen!");
+			break;
+		case 2:
+			if (isCpuInRam()) return;
+			//PSV_DEBUG("Waiting for LOADING print...");
+			gs_scanScreenLoadingTimer = 50;
 		}
 	}
 	if (gs_scanScreenReadyTimer > 0){
-		if (--gs_scanScreenReadyTimer == 0){
-			int ret = scanScreen("READY.", CURSOR_WAIT_BLINK);
+		if (--gs_scanScreenReadyTimer != 0) return;
+		int ret = scanScreen("READY.", CURSOR_WAIT_BLINK);
 
-			if (ret == 0){ // "READY." printed on screen
-				// Type "RUN" command.
-				//PSV_DEBUG("READY. printed on screen. Type RUN command...");
-				setPendingAction(CTRL_ACTION_KBDCMD_RUN);
+		switch (ret){
+		case 0:
+			//PSV_DEBUG("READY. printed on screen. Type RUN command...");
+			setPendingAction(CTRL_ACTION_KBDCMD_RUN);
+			break;
+		case 1:
+			//PSV_DEBUG("READY. not printed on screen!"); 
+			break;
+		case 2:
+			if (isCpuInRam()){ 
+				//PSV_DEBUG("Out of ROM!"); 
+				return;
 			}
-			else if (ret == 1){ // "READY." not printed on screen
-				//PSV_DEBUG("READY. not printed on screen!");
-			}
-			else if (ret == 2){ // Waiting for print
-				// The routine that is responsible for writing text on screen is in ROM.
-				if (!isCpuInRam()){
-					// Still in ROM. Keep waiting.
-					//PSV_DEBUG("Waiting for READY print...");
-					gs_scanScreenReadyTimer = 50;
-				}
-			}
+			//PSV_DEBUG("Waiting for READY print...");
+			gs_scanScreenReadyTimer = 50;
 		}
 	}
 }
 
-static void setPendingAction(CTRL_ACTION action)
+static void setPendingAction(ctrl_pending_action_e action)
 {
 	// Set actions that for some reason need to be performed after a delay or during emulation.
 	
@@ -1857,12 +1928,12 @@ static void setPendingAction(CTRL_ACTION action)
 			setSoundVolume(0); 
 		}
 		break;
-	case CTRL_ACTION_LOAD_DISK:
+	case CTRL_ACTION_KBDCMD_LOAD_DISK:
 		if (!gs_loadDiskTimer){
 			gs_loadDiskTimer = 50;
 		}
 		break;
-	case CTRL_ACTION_LOAD_TAPE:
+	case CTRL_ACTION_KBDCMD_LOAD_TAPE:
 		if (!gs_loadTapeTimer){
 			gs_loadTapeTimer = 50;
 		}
@@ -1872,7 +1943,17 @@ static void setPendingAction(CTRL_ACTION action)
 			gs_kbdCmdRunTimer = 5;
 		}
 		break;
-	case CTRL_ACTION_SCAN_SCREEN_READY:
+	case CTRL_ACTION_SCANSCR_PRESSPLAYONTAPE:
+		if (!gs_scanScreenPressPlayTimer){
+			gs_scanScreenPressPlayTimer = 50;
+		}
+		break;
+	case CTRL_ACTION_SCANSCR_LOADING:
+		if (!gs_scanScreenLoadingTimer){
+			gs_scanScreenLoadingTimer = 50;
+		}
+		break;
+	case CTRL_ACTION_SCANSCR_LOADING_READY:
 		if (!gs_scanScreenReadyTimer){
 			gs_scanScreenReadyTimer = 50;
 		}
@@ -1904,31 +1985,10 @@ static void pauseEmulation(bool pause)
 	}
 }
 
-bool Controller::isZipFile(const char* fname)
-{
-	string extension;
-	string file = fname;
-	bool ret = false;
-
-	size_t dot_pos = file.find_last_of(".");
-	if (dot_pos != string::npos)
-		extension = file.substr(dot_pos+1, string::npos);
-
-	if (extension.empty())
-		return false;
-	
-	strToUpperCase(extension);
-
-	if (extension == "ZIP")
-		ret = true;
-
-	return ret;
-}
-
 static int scanScreen(const char *s, unsigned int blink_mode)
 {
 	// Scans the screen memory for the text in parameter s.
-	// blink_mode parameter specifies if s is followed by a new line and a blinking/flashing cursor.
+	// blink_mode parameter specifies whether to additionally scan for new line and a blinking/flashing cursor.
 	// Return values:
 	// 0 = text in s was printed on screen.
 	// 1 = text in s was not printed on screen.
@@ -1983,5 +2043,67 @@ static bool isCpuInRam()
 		return true;
 	}
   
+	return false;
+}
+
+static bool isFileOfType(const char* fname, const char* type)
+{
+	string extension;
+	string file = fname;
+
+	size_t dot_pos = file.find_last_of(".");
+	if (dot_pos != string::npos)
+		extension = file.substr(dot_pos+1, string::npos);
+
+	if (extension.empty())
+		return false;
+
+	if (extension == type)
+		return true;
+
+	strToUpperCase(extension);
+
+	if (extension == type)
+		return true;
+
+	return false;
+}
+
+static void strToUpperCase(string& str)
+{
+   for (std::string::iterator p = str.begin(); p != str.end(); ++p)
+       *p = toupper(*p);
+}
+
+static int getCurrentDriveId()
+{
+	int ret = 0;
+	const char* key_value;
+	
+	// Get drive id.
+	gs_view->getSettingValues(DRIVE_NUMBER, &key_value,0,0,0);
+
+	if (!strcmp(key_value, "8"))
+		ret = 8;
+	else if (!strcmp(key_value, "9"))
+		ret = 9;
+	else if (!strcmp(key_value, "10"))
+		ret = 10;
+	else if (!strcmp(key_value, "11"))
+		ret = 11;
+
+	return ret;
+}
+
+static bool isTapOnTape()
+{
+	// Checks if a TAP file is attached to the datasette.
+
+	if (!tape_image_dev1)
+		return false;
+
+	if (tape_image_dev1->type == TAPE_TYPE_TAP)
+		return true;
+
 	return false;
 }

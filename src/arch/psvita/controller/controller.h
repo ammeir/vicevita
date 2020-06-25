@@ -41,6 +41,7 @@ void		PSV_NotifyTapeControl(int control);
 void		PSV_NotifyDriveStatus(int drive, int led);
 void		PSV_NotifyDriveContent(int drive, const char* image);
 void		PSV_NotifyTapeMotorStatus(int motor);
+void		PSV_NotifyDriveTrack(unsigned int drive, unsigned int track);
 void		PSV_NotifyReset();
 int			PSV_ShowMessage(const char* msg, int msg_type);
 #else
@@ -75,12 +76,12 @@ typedef struct{
 	uint32_t	data_size;
 }patch_data_s;
 
-typedef enum{
-	AUTO_DETECT_LOAD,
-	DISK_LOAD,
-	TAPE_LOAD,
-	CART_LOAD
-}load_type_e;
+enum ctrl_load_e{
+	CTRL_AUTO_DETECT_LOAD,
+	CTRL_DISK_LOAD,
+	CTRL_TAPE_LOAD,
+	CTRL_CART_LOAD
+};
 
 using std::string;
 using std::vector;
@@ -103,6 +104,7 @@ private:
 	void			setCrtEmulation();
 	void			setColorPalette(const char* val);
 	void			setJoystickPort(const char* val);
+	void			setDriveStatus(const char* val);
 	void			setDriveEmulation(const char* val);
 	void			setDriveSoundEmulation(const char* val);
 	void			setDatasetteReset(const char* val);
@@ -111,17 +113,13 @@ private:
 	void			setMouseSampling(const char* val);
 	void			updatePalette();
 	void			resumeSound();
-	int				attachDriveImage(const char* image);
+	int				attachDriveImage(int drive, const char* image);
 	int				attachTapeImage(const char* image);
 	int				attachCartridgeImage(const char* image);
-	void			detachDriveImage();
+	void			detachDriveImage(int drive);
 	int				detachTapeImage();
 	void			detachCartridgeImage();
-	string			getFileExtension(const char* fname);
-	void			strToUpperCase(string& str);
-	const char*		extractFile(const char *path);
-	bool			isZipFile(const char* fname);
-
+	const char*		extractFile(const char *path, int drive = 8);
 
 public:
 					Controller();
@@ -129,7 +127,7 @@ public:
 
 	void			init(View* view);
 	void			resetComputer();
-	int				loadFile(load_type_e type, const char* file_path, const char* program_name = NULL, int index = 0, const char* target_file = NULL);
+	int				loadFile(int load_type, const char* file_path, int index = 0);
 	int				loadState(const char* file);
 	int				saveState(const char* file_name);
 	int				patchSaveState(patch_data_s* patch);
@@ -140,6 +138,7 @@ public:
 	void			syncPeripherals();
 	void			syncModelSettings();
 	void			setModelProperty(int key, const char* value);
+	void			getDiskImageFile(int drive, const char** image);
 	void			getImageFileContents(int peripheral, const char* image, const char*** values, int* size);
 	int				attachImage(int device, const char* image, const char** values, int size);
 	void			detachImage(int device, const char** values, int size);
