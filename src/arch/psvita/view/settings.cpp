@@ -50,12 +50,12 @@ typedef void (Settings::*handler_func_t)(int, const char*);
 
 typedef struct 
 {
-	string			display_name;
-	string			ini_name;
+	string			key_display_name;
+	string			key_ini_name;
 	string			value;
-	string			value2;
 	const char**	values;
 	int				values_size;
+	string			data_src; // Store source file name here if values are dynamic.
 	int				isHeader;
 	int				type;
 	int				id;
@@ -73,7 +73,7 @@ static const char* gs_borderVisibilityValues[]	= {"Show","Hide","Remove"};
 static const char* gs_joystickPortValues[]		= {"Port 1","Port 2"};
 static const char* gs_joystickSideValues[]		= {"Left","Right"};
 static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen"};
-static const char* gs_autofireSpeedValues[]		= {"Slow","Medium slow","Medium","Medium fast","Fast"};
+static const char* gs_autofireSpeedValues[]		= {"Slow","Medium","Fast"};
 static const char* gs_cpuSpeedValues[]			= {"100%","125%","150%","175%","200%"};
 static const char* gs_hostCpuSpeedValues[]		= {"333 MHz","444 MHz"};
 static const char* gs_audioPlaybackValues[]		= {"Enabled","Disabled"};
@@ -82,27 +82,27 @@ static const char* gs_machineResetValues[]		= {"Hard","Soft"};
 static int gs_settingsEntriesSize = 21;
 static SettingsEntry gs_list[] = 
 {
-	{"Machine","","","",0,0,1}, /* Header line */
-	{"VIC-II model","VICIIModel","PAL","",gs_viciiModelValues,4,0,ST_MODEL,VICII_MODEL,0},
-	{"SID engine",  "SIDEngine", "FastSID","",gs_sidEngineValues,2,0,ST_MODEL,SID_ENGINE,0},
-	{"SID model",   "SIDModel",  "6581","",gs_sidModelValues,2,0,ST_MODEL,SID_MODEL,0},
-	{"Video","","","",0,0,1},
-	{"Aspect ratio",  "AspectRatio",  "16:9","",gs_aspectRatioValues,3,0,ST_VIEW,ASPECT_RATIO,0},
-	{"Texture filter","TextureFilter","Linear","",gs_textureFilterValues,2,0,ST_VIEW,TEXTURE_FILTER,0},
-	{"Color palette", "ColorPalette", "Colodore","",gs_colorPaletteValues,6,0,ST_MODEL,COLOR_PALETTE,0},
-	{"Borders",       "Borders",      "Hide","",gs_borderVisibilityValues,2,0,ST_VIEW,BORDERS,0},
-	{"Input","","","",0,0,1},
-	{"Joystick port", "JoystickPort", "Port 2","",gs_joystickPortValues,2,0,ST_MODEL,JOYSTICK_PORT,0},
-	{"Joystick side", "JoystickSide", "Left","",gs_joystickSideValues,2,0,ST_VIEW,JOYSTICK_SIDE,0},
-	{"Autofire speed","AutofireSpeed","Fast","",gs_autofireSpeedValues,5,0,ST_VIEW,JOYSTICK_AUTOFIRE_SPEED,0},
-	{"Keyboard mode", "KeyboardMode", "Split screen","",gs_keyboardModeValues,2,0,ST_VIEW,KEYBOARD_MODE,0},
-	{"Performance","","","",0,0,1},
-	{"CPU speed",     "CPUSpeed",    "100%","",gs_cpuSpeedValues,5,0,ST_MODEL,CPU_SPEED,0},
-	{"Host CPU speed","HostCPUSpeed","333 MHz","",gs_hostCpuSpeedValues,2,0,ST_VIEW,HOST_CPU_SPEED,0},
-	{"Audio","","","",0,0,1},
-	{"Playback","Sound","Enabled","",gs_audioPlaybackValues,2,0,ST_MODEL,SOUND,0},
-	{"Other","","","",0,0,1},
-	{"Reset","Reset","Hard","",gs_machineResetValues,2,0,ST_MODEL,MACHINE_RESET,0}
+	{"Machine","","",0,0,"",1}, /* Header line */
+	{"VIC-II model","VICIIModel","PAL",gs_viciiModelValues,4,"",0,ST_MODEL,VICII_MODEL,0},
+	{"SID engine",  "SIDEngine", "FastSID",gs_sidEngineValues,2,"",0,ST_MODEL,SID_ENGINE,0},
+	{"SID model",   "SIDModel",  "6581",gs_sidModelValues,2,"",0,ST_MODEL,SID_MODEL,0},
+	{"Video","","",0,0,"",1},
+	{"Aspect ratio",  "AspectRatio",  "16:9",gs_aspectRatioValues,3,"",0,ST_VIEW,ASPECT_RATIO,0},
+	{"Texture filter","TextureFilter","Linear",gs_textureFilterValues,2,"",0,ST_VIEW,TEXTURE_FILTER,0},
+	{"Color palette", "ColorPalette", "Colodore",gs_colorPaletteValues,6,"",0,ST_MODEL,COLOR_PALETTE,0},
+	{"Borders",       "Borders",      "Hide",gs_borderVisibilityValues,2,"",0,ST_VIEW,BORDERS,0},
+	{"Input","","",0,0,"",1},
+	{"Joystick port", "JoystickPort", "Port 2",gs_joystickPortValues,2,"",0,ST_MODEL,JOYSTICK_PORT,0},
+	{"Joystick side", "JoystickSide", "Left",gs_joystickSideValues,2,"",0,ST_VIEW,JOYSTICK_SIDE,0},
+	{"Autofire speed","AutofireSpeed","Fast",gs_autofireSpeedValues,3,"",0,ST_VIEW,JOYSTICK_AUTOFIRE_SPEED,0},
+	{"Keyboard mode", "KeyboardMode", "Split screen",gs_keyboardModeValues,2,"",0,ST_VIEW,KEYBOARD_MODE,0},
+	{"Performance","","",0,0,"",1},
+	{"CPU speed",     "CPUSpeed",    "100%",gs_cpuSpeedValues,5,"",0,ST_MODEL,CPU_SPEED,0},
+	{"Host CPU speed","HostCPUSpeed","333 MHz",gs_hostCpuSpeedValues,2,"",0,ST_VIEW,HOST_CPU_SPEED,0},
+	{"Audio","","",0,0,"",1},
+	{"Playback","Sound","Enabled",gs_audioPlaybackValues,2,"",0,ST_MODEL,SOUND,0},
+	{"Other","","",0,0,"",1},
+	{"Reset","Reset","Hard",gs_machineResetValues,2,"",0,ST_MODEL,MACHINE_RESET,0}
 };
 
 
@@ -312,7 +312,7 @@ void Settings::render()
 			y += 5;
 
 		if (gs_list[i].isHeader){
-			txtr_draw_text(20, y, WHITE, gs_list[i].display_name.c_str());
+			txtr_draw_text(20, y, WHITE, gs_list[i].key_display_name.c_str());
 			// Draw line under header
 			y += 4;
 			vita2d_draw_line(20, y, 900, y, WHITE);
@@ -323,14 +323,14 @@ void Settings::render()
 
 			// Highlight rectangle
 			if (i == m_highlight){
-				int textHeight = txtr_get_text_height(gs_list[i].display_name.c_str(), 24);
+				int textHeight = txtr_get_text_height(gs_list[i].key_display_name.c_str(), 24);
 				// Draw highlight rectangle
 				vita2d_draw_rectangle(35, y-textHeight+1, 870, textHeight+2, ROYAL_BLUE);
 				m_highligtBarYpos = y-textHeight+2; // save this for listbox position
 				key_color = val_color = arr_color = WHITE;
 			}	
 			// Key
-			txtr_draw_text(40, y, key_color, gs_list[i].display_name.c_str());
+			txtr_draw_text(40, y, key_color, gs_list[i].key_display_name.c_str());
 			// Value
 			txtr_draw_text(m_posXValue, y, val_color, getDisplayFitString(gs_list[i].value.c_str(), m_maxValueWidth).c_str());
 			// Draw left arrow if key is highlighted
@@ -437,7 +437,7 @@ void Settings::loadSettingsFromFile(const char* ini_file)
 			continue;
 
 		memset(key_value, 0, 128);
-		if (!ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].ini_name.c_str(), key_value) && strlen(key_value) != 0)
+		if (!ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), key_value) && strlen(key_value) != 0)
 			gs_list[i].value = key_value;
 		
 		if (gs_list[i].id == CPU_SPEED) // % is not in ini file (HACK).
@@ -472,13 +472,13 @@ void Settings::saveSettingsToFile(const char* ini_file)
 			continue;
 
 		int ret = ini_parser.setKeyValue(INI_FILE_SEC_SETTINGS, 
-										gs_list[i].ini_name.c_str(), 
+										gs_list[i].key_ini_name.c_str(), 
 										gs_list[i].value.c_str());	
 
 		if (ret == INI_PARSER_KEY_NOT_FOUND){
 			// Old ini file version. Add new key/value pair.
 			ini_parser.addKeyToSec(INI_FILE_SEC_SETTINGS, 
-									gs_list[i].ini_name.c_str(), 
+									gs_list[i].key_ini_name.c_str(), 
 									gs_list[i].value.c_str());
 		}
 	}
@@ -502,7 +502,7 @@ string Settings::getKeyValue(int key)
 	return ret;
 }
 
-void Settings::setKeyValue(int key, const char* value, const char* value2, const char** values, int size, int mask)
+void Settings::setKeyValue(int key, const char* value, const char* src, const char** values, int size, int mask)
 {
 	for (int i = 0; i<gs_settingsEntriesSize; ++i){
 
@@ -513,7 +513,7 @@ void Settings::setKeyValue(int key, const char* value, const char* value2, const
 			if (mask & 0x01)
 				gs_list[i].value = value;
 			if (mask & 0x02)
-				gs_list[i].value2 = value2;
+				gs_list[i].data_src = src;
 			if (mask & 0x04)
 				gs_list[i].values = values;
 			if (mask & 0x08)
@@ -522,18 +522,18 @@ void Settings::setKeyValue(int key, const char* value, const char* value2, const
 	}
 }
 
-void Settings::setKeyValue(const char* key, const char* value, const char* value2, const char** values, int size, int mask)
+void Settings::setKeyValue(const char* key, const char* value, const char* src, const char** values, int size, int mask)
 {
 	for (int i = 0; i<gs_settingsEntriesSize; ++i){
 
 		if (gs_list[i].isHeader)
 			continue;
 
-		if (gs_list[i].ini_name == key){
+		if (gs_list[i].key_ini_name == key){
 			if (mask & 0x01)
 				gs_list[i].value = value;
 			if (mask & 0x02)
-				gs_list[i].value2 = value2;
+				gs_list[i].data_src = src;
 			if (mask & 0x04)
 				gs_list[i].values = values;
 			if (mask & 0x08)
@@ -542,7 +542,7 @@ void Settings::setKeyValue(const char* key, const char* value, const char* value
 	}
 }
 
-void Settings::getKeyValues(int key, const char** value, const char** value2, const char*** values, int* size)
+void Settings::getKeyValues(int key, const char** value, const char** src, const char*** values, int* size)
 {
 	for (int i = 0; i<gs_settingsEntriesSize; ++i){
 
@@ -552,8 +552,8 @@ void Settings::getKeyValues(int key, const char** value, const char** value2, co
 		if (gs_list[i].id == key){
 			if (value)
 				*value = gs_list[i].value.c_str();
-			if (value2)
-				*value2 = gs_list[i].value2.c_str();
+			if (src)
+				*src = gs_list[i].data_src.c_str();
 			if (values)
 				*values = gs_list[i].values;
 			if (size)
@@ -704,7 +704,7 @@ string Settings::toString(int setting)
 			case JOYSTICK_AUTOFIRE_SPEED:
 			case KEYBOARD_MODE:
 			case HOST_CPU_SPEED:
-				ret.append(gs_list[i].ini_name);
+				ret.append(gs_list[i].key_ini_name);
 				ret.append(SNAP_MOD_DELIM_FIELD);
 				ret.append(gs_list[i].value);
 				ret.append(SNAP_MOD_DELIM_ENTRY);
@@ -724,7 +724,7 @@ string Settings::toString(int setting)
 			case COLOR_PALETTE:
 			case CPU_SPEED:
 			case SID_MODEL:
-				ret.append(gs_list[i].ini_name);
+				ret.append(gs_list[i].key_ini_name);
 				ret.append(SNAP_MOD_DELIM_FIELD);
 				ret.append(gs_list[i].value);
 				ret.append(SNAP_MOD_DELIM_ENTRY);

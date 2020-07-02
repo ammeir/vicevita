@@ -105,9 +105,9 @@ public:
 	void					init(View* view, Controller* controller);
 	RetCode					doModal(const char* save_dir, const char* game_file);
 	string					getKeyValue(int key);
-	void					getKeyValues(int key, const char** value, const char** value2, const char*** values, int* size);
-	void					setKeyValue(int key, const char* value, const char* value2, const char** values, int size, int mask);
-	void					setKeyValue(const char* key, const char* value, const char* value2, const char** values, int size, int mask);
+	void					getKeyValues(int key, const char** value, const char** src, const char*** values, int* size);
+	void					setKeyValue(int key, const char* value, const char* src, const char** values, int size, int mask);
+	void					setKeyValue(const char* key, const char* value, const char* src, const char** values, int size, int mask);
 	void					applySetting(int key);
 	void					applySettings(int group);
 	void					createConfFile(const char* file);

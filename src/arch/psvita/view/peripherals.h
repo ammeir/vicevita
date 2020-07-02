@@ -30,6 +30,11 @@
 #include <vector>
 #include <string>
 
+// Device data that Control needs.
+struct dev_data_s{
+	string	src_file;  // This is the initial file. If compressed the zip file name is stored here.
+	string	image_file; // The actual image file e.g d64, crt, tap etc.
+};
 
 typedef enum {
 	PERIF_ACTION_SAVE = 0,
@@ -60,6 +65,7 @@ private:
 	int						m_posXValue;
 	int						m_maxValueWidth;
 	string					m_devSaveFiles[6];
+	dev_data_s				m_devDataSrc[6];
 	RetCode					m_exitCode;
 	
 	// Virtual function implementations
@@ -95,10 +101,10 @@ public:
 
 	void					init(View* view, Controller* controller);
 	RetCode					doModal();
-	int						loadImage(int load_type, const char* file, int index = 0);
+	int						loadImage(int load_type, const char* file = NULL, int index = 0);
 	string					getKeyValue(int key);
-	void					getKeyValues(int key, const char** value, const char** value2, const char*** values, int* size);
-	void					setKeyValue(int key, const char* value, const char* value2, const char** values, int size, int mask);
+	void					getKeyValues(int key, const char** value, const char** src, const char*** values, int* size);
+	void					setKeyValue(int key, const char* value, const char* src, const char** values, int size, int mask);
 	int						attachImage(int peripheral, const char* image);
 	void					applyAllSettings();
 	void					notifyReset();

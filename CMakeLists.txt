@@ -175,6 +175,7 @@ add_executable(${SHORT_NAME}
 	src/arch/psvita/view/control_pad.cpp
 	src/arch/psvita/view/controls.cpp
 	src/arch/psvita/view/dialog_box.cpp
+	src/arch/psvita/view/extractor.cpp
 	src/arch/psvita/view/file_explorer.cpp
 	src/arch/psvita/view/guitools.cpp
 	src/arch/psvita/view/ini_parser.cpp

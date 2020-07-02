@@ -39,6 +39,7 @@ Statusbar::Statusbar()
 	m_updated = false;
 	m_driveLedMask = 0;
 	m_driveDiskMask = 0;
+	m_driveStatusMask = 1; // Drive 8 is the only active at boot.
 	m_tapeMotor = 0;
 	m_tapeControl = 0;
 	m_tapeControlTex = NULL;
@@ -122,6 +123,19 @@ int Statusbar::render()
 			vita2d_draw_line(122, 538, 128, 538, YELLOW);
 		if (m_driveDiskMask & 0x08)
 			vita2d_draw_line(145, 538, 151, 538, YELLOW);
+
+	}
+
+	// Disk power status.
+	if (m_driveStatusMask){
+		if (m_driveStatusMask & 0x01)
+			vita2d_draw_rectangle(79, 518, 2, 2, GREEN);
+		if (m_driveStatusMask & 0x02)
+			vita2d_draw_rectangle(102, 518, 2, 2, GREEN);
+		if (m_driveStatusMask & 0x04)
+			vita2d_draw_rectangle(125, 518, 2, 2, GREEN);
+		if (m_driveStatusMask & 0x08)
+			vita2d_draw_rectangle(148, 518, 2, 2, GREEN);
 	}
 
 	// Tape control texture.
@@ -254,10 +268,19 @@ void Statusbar::setDriveTrack(unsigned int drive, unsigned int half_track)
 void Statusbar::setDriveDiskPresence(int drive, int disk_in)
 {
 	m_driveDiskMask = disk_in? m_driveDiskMask | m_drives[drive].bitmask: 
-		                  m_driveDiskMask & ~m_drives[drive].bitmask;
+								m_driveDiskMask & ~m_drives[drive].bitmask;
 
 	if (!disk_in)
 		sprintf(m_drives[drive].track, "00.0"); 
+}
+
+void Statusbar::setDriveStatus(int drive, int active)
+{
+	if (drive > 3)
+		return;
+
+	m_driveStatusMask = active? m_driveStatusMask | m_drives[drive].bitmask: 
+								m_driveStatusMask & ~m_drives[drive].bitmask;
 }
 
 bool Statusbar::isUpdated()

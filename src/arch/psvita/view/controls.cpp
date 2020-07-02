@@ -37,11 +37,11 @@
 #include <psp2/kernel/threadmgr.h> 
 
 // Max lines on the screen
-#define MAX_ENTRIES 17
+#define MAX_ENTRIES 18
 #define SCROLL_BAR_X 930
-#define SCROLL_BAR_Y 53
+#define SCROLL_BAR_Y 38
 #define SCROLL_BAR_WIDTH 8
-#define SCROLL_BAR_HEIGHT 422
+#define SCROLL_BAR_HEIGHT 446
 
 
 vector<BitmapInfo>	g_controlBitmaps;
@@ -160,11 +160,12 @@ void Controls::show()
 void Controls::render()
 {
 	// File name
-	txtr_draw_text(15, 30, C64_BLUE, m_gameFile.c_str());
+	txtr_draw_text(15, 20, C64_BLUE, m_gameFile.c_str());
 	// Conf file type
-	txtr_draw_text(855, 30, C64_BLUE, m_confFileDesc.c_str());
+	txtr_draw_text(855, 20, C64_BLUE, m_confFileDesc.c_str());
 	// Top seperation line
-	vita2d_draw_line(15, 40, 940, 40, YELLOW_TRANSPARENT);
+	vita2d_draw_line(15, 30, 940, 30, YELLOW_TRANSPARENT);
+
 	renderList();
 	renderBitmaps();
 	// Bottom seperation line
@@ -287,7 +288,7 @@ void Controls::navigateRight()
 
 void Controls::renderList()
 {
-	int y = 70;
+	int y = 55;
 	int text_color;
 	
 	int start = m_borderTop;
@@ -319,7 +320,7 @@ void Controls::renderList()
 
 void Controls::renderBitmaps()
 {
-	int y = 55;
+	int y = 40;
 	vita2d_texture* bitmap;
 
 	int start = m_borderTop;

@@ -158,6 +158,7 @@ public:
 	void			setTapeMotorStatus(int motor);
 	void			setDriveTrack(unsigned int drive, unsigned int track);
 	void			setDriveDiskPresence(int drive, int disk_in);
+	void			setDriveStatus(int drive, int active);
 	int				showMessage(const char* msg, int msg_type);
 	void			displayPaused(int);
 	void			toggleStatusbarOnView();
@@ -169,8 +170,8 @@ public:
 	void			activateMenu();
 	unsigned char*	getThumbnail();
 	void			notifyReset();
-	void			onSettingChanged(int key, const char* value, const char* value2, const char** values, int size, int mask);
-	void			getSettingValues(int key, const char** value, const char** value2, const char*** values, int* size);
+	void			onSettingChanged(int key, const char* value, const char* src, const char** values, int size, int mask);
+	void			getSettingValues(int key, const char** value, const char** src, const char*** values, int* size);
 	int				convertRGBToPixel(uint8_t red, uint8_t green, uint8_t blue);
 	bool			pendingRedraw();
 	void			updateSettings();

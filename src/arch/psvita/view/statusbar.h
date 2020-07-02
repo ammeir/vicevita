@@ -71,6 +71,7 @@ private:
 	int				m_lastActiveDrive;
 	char			m_driveLedMask;
 	char			m_driveDiskMask;
+	char			m_driveStatusMask;
 	bool			m_updated;
 	
 	void			loadResources();
@@ -89,6 +90,7 @@ public:
 	void			setTapeMotor(int motor);
 	void			setDriveTrack(unsigned int drive, unsigned int half_track);
 	void			setDriveDiskPresence(int drive, int disk_in);
+	void			setDriveStatus(int drive, int active);
 	bool			isUpdated();
 	void			notifyReset();
 };

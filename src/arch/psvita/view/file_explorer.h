@@ -87,6 +87,7 @@ public:
 						~FileExplorer();
 	void				init(const char* path, int hlIndex = 0, int btIndex = 0, float sbPosY = 0, const char** filter = NULL);
 	string				doModal();
+	static FileExplorer* getInst();
 	int					readDirContent(const char* path);
 	void				addParentDirectory();
 	void				sortDirContent();
@@ -97,6 +98,7 @@ public:
 	int					writeToFile(const char* path_to_file, const char* data, long size);
 	int					readFromFile(const char* path_to_file, char** data, long* size);
 	int					deleteFile(const char* path);
+	int					clearDir(const char* path_to_dir);
 	void				changeDir(const char* path);
 	bool				dirExist(const char* path_to_dir);
 	bool				fileExist(const char* path_to_file);

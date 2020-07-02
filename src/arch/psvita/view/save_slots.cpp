@@ -307,8 +307,7 @@ int SaveSlots::addThumbToSnap(const char* snap_file)
 	if (file_buf)
 		delete[] file_buf;
 
-	FileExplorer fileExp;
-	fileExp.deleteFile(thumb_file.c_str());
+	FileExplorer::getInst()->deleteFile(thumb_file.c_str());
 
 	return ret;
 }

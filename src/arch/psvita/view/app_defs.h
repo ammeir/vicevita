@@ -99,6 +99,14 @@
 #define IMAGE_PROGRAM						2
 #define IMAGE_DISK							3
 
+// Device index numbers
+#define DEV_DRIVE8		0
+#define DEV_DRIVE9		1
+#define DEV_DRIVE10		2
+#define DEV_DRIVE11		3
+#define DEV_DATASETTE	4
+#define DEV_CARTRIDGE	5
+
 // Snapshot patch modules. Max 16 letters.
 #define SNAP_MOD_THUMB						"SMOD_THUMB"
 #define SNAP_MOD_SETTINGS					"SMOD_SETTINGS"
@@ -153,6 +161,7 @@
 #define ROYAL_BLUE							RGBA8(65, 105, 255, 255)
 #define CYAN								RGBA8(0, 192, 192, 255)
 #define C64_BLUE							RGBA8(79, 67, 215, 255)
+#define GREEN								RGBA8(0, 192, 0, 255)
 
 
 #define MIN(a, b)							(((a) < (b)) ? (a) : (b))

@@ -114,6 +114,12 @@ string FileExplorer::doModal()
 	return m_fileSelected? select().path: "";
 }
 
+FileExplorer* FileExplorer::getInst()
+{
+	static FileExplorer fe;
+	return &fe;
+}
+
 void FileExplorer::buttonReleased(int button)
 {
 	if (button == SCE_CTRL_CROSS){ 
@@ -479,6 +485,23 @@ int	FileExplorer::deleteFile(const char* file)
 {
 	if (sceIoRemove(file) < 0)
 		return RET_FILE_DELETE_ERROR;
+
+	return RET_OK;
+}
+
+int FileExplorer::clearDir(const char* path_to_dir)
+{
+	if (!path_to_dir)
+		return RET_DIR_OPEN_ERROR;
+
+	if (readDirContent(path_to_dir) != RET_OK)
+		return RET_DIR_OPEN_ERROR;
+
+	vector<DirEntry> dir_content = getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		deleteFile((*it).path.c_str());
+	}
 
 	return RET_OK;
 }

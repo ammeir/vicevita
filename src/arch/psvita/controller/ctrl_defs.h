@@ -5,6 +5,8 @@
 enum ctrl_pending_action_e{
 	CTRL_ACTION_SHOW_MENU = 0, 
 	CTRL_ACTION_PAUSE,
+	CTRL_ACTION_ACTIVATE_DRIVE,
+	CTRL_ACTION_DEACTIVATE_DRIVE,
 	CTRL_ACTION_KBDCMD_LOAD_DISK,
 	CTRL_ACTION_KBDCMD_LOAD_TAPE,
 	CTRL_ACTION_KBDCMD_RUN,
@@ -29,6 +31,9 @@ static int	  gs_pauseTimer = 0;
 static int	  gs_loadDiskTimer = 0;
 static int	  gs_loadTapeTimer = 0;
 static int	  gs_kbdCmdRunTimer = 0;
+static int	  gs_activateDriveTimer = 0;
+static int	  gs_activateDriveAndLoadDiskTimer = 0;
+static int	  gs_deactivateDriveTimer = 0;
 static int    gs_scanScreenPressPlayTimer = 0;
 static int    gs_scanScreenLoadingTimer = 0;
 static int	  gs_scanScreenReadyTimer = 0;

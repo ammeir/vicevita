@@ -195,10 +195,9 @@ void View::handleMainMenuSelection(string& selection)
 		m_inGame = true;
 		m_uiActive = false;
 		waitKeysIdle(); // To avoid pushing circle button inside game
-		// Vice only draws when necessary and if a geme is in a still image a draw won't come.
+		// Vice only draws when necessary and if a game is in a still image a draw won't come.
 		// Draw the last buffer we got so we atleast respond to the button press. 
 		updateView(); 
-
 	}
 }
 
@@ -380,6 +379,11 @@ void View::setDriveDiskPresence(int drive, int disk_in)
 	m_statusbar->setDriveDiskPresence(drive, disk_in);
 }
 
+void View::setDriveStatus(int drive, int active)
+{
+	m_statusbar->setDriveStatus(drive, active);
+}
+
 int View::showMessage(const char* msg, int msg_type)
 {
 	int ret = 0;
@@ -545,9 +549,16 @@ void View::showSaveSlots()
 
 void View::showPeripherals()
 {
-	if (m_peripherals->doModal() == EXIT_MENU){
+	RetCode ret = m_peripherals->doModal();
+
+	if (ret == EXIT_MENU){
+		// User pressed Auto load.
 		m_inGame = true;
 		m_uiActive = false;
+		updateSettings();
+		// Vice only draws when necessary and if a game is in a still image a draw won't come.
+		// Draw the last buffer we got so we atleast respond to the button press. 
+		updateView(); 
 	}
 }
 
@@ -698,7 +709,7 @@ void View::waitKeysIdle()
 	m_controlPad->waitTillButtonsReleased();
 }
 
-void View::onSettingChanged(int key, const char* value, const char* value2, const char** values, int size, int mask)
+void View::onSettingChanged(int key, const char* value, const char* src, const char** values, int size, int mask)
 {
 	// Model setting changed.
 
@@ -712,10 +723,10 @@ void View::onSettingChanged(int key, const char* value, const char* value2, cons
 	case DATASETTE_CONTROL:
 	case CARTRIDGE:
 	case CARTRIDGE_RESET:
-		m_peripherals->setKeyValue(key, value, value2, values, size, mask);
+		m_peripherals->setKeyValue(key, value, src, values, size, mask);
 		break;
 	default:
-		m_settings->setKeyValue(key, value, value2, values, size, mask);
+		m_settings->setKeyValue(key, value, src, values, size, mask);
 	}
 }
 
@@ -752,7 +763,7 @@ void View::setProperty(int key, const char* value)
 	}
 }
 
-void View::getSettingValues(int key, const char** value, const char** value2, const char*** values, int* size)
+void View::getSettingValues(int key, const char** value, const char** src, const char*** values, int* size)
 {
 	switch (key){
 	case DRIVE:
@@ -763,10 +774,10 @@ void View::getSettingValues(int key, const char** value, const char** value2, co
 	case DATASETTE:
 	case CARTRIDGE:
 	case CARTRIDGE_RESET:
-		m_peripherals->getKeyValues(key, value, value2, values, size);
+		m_peripherals->getKeyValues(key, value, src, values, size);
 		break;
 	default:
-		m_settings->getKeyValues(key, value, value2, values, size);
+		m_settings->getKeyValues(key, value, src, values, size);
 	}
 }
 
@@ -835,7 +846,6 @@ unsigned char* View::getThumbnail()
 void View::notifyReset()
 {
 	// Notification that model is about to reset
-
 	m_peripherals->notifyReset();
 	m_statusbar->notifyReset();
 	updateSettings();
