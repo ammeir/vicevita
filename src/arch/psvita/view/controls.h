@@ -98,8 +98,10 @@ private:
 	int				m_highlightColor;
 	ScrollBar		m_scrollBar;
 	string			m_saveDir;
-	string			m_gameFile;
+	string			m_gameFileHeader;
 	string			m_confFileDesc;
+	int*			m_defMidArray;
+	bool			m_userChanges;
 	
 
 	void			show();
@@ -109,18 +111,18 @@ private:
 	void			renderInstructions();
 	string			showValuesListBox(const char** values, int size);
 	bool			fileExist(string& file_name);
-	bool			keyMapsValueExist(const char* ini_file);
 	void			createConfFile(const char* ini_file);
 	void			createGameSaveDir(const char* save_dir);
-	string			getConfFileDesc();
 	void			setMappingValue(int item_index, string& val);
 	void			getMappingValue(int item_index, string& ret);
 	bool			isActionAllowed(ControlsAction);
 	void			updateKeyMapTable(vector<string>& updateVec);
 	void			saveKeyMapTable(const char* file_path);
-	void			setState(ControlsState state);
 	void			loadResources();
 	string			getDisplayFitString(const char* str, int limit, float font_size = 1);
+	void			changeState();
+	void			loadDefMidArray();
+	int				cmpMidsToDef();
 	
 	// Virtual function implementations (Navigator)
 	bool			isExit(int buttons); 
@@ -135,8 +137,11 @@ public:
 
 	void			init(Controller*b, Settings*);
 	void			doModal(const char* save_dir, const char* game_file);
-	void			fillMappingValuesFile(const char* ini_file);
-	void			fillMappingValuesBuf(const char* buffer);
+	void			loadMappingsFromFile(const char* ini_file);
+	void			loadMappingsFromBuf(const char* buffer);
+	bool			mappingsUpdatedInFile(const char* ini_file);
+	bool			mappingsExistInFile(const char* ini_file);
+	
 	int				nameToMid(char* name);
 	const char*		midToName(int mid);
 	ControlPadMap*  getMappedKeyDigital(int button, int realBtnMask);
@@ -168,6 +173,7 @@ KeyIndex     | 0 | 1 | 2 | 3 | 4 | 5 | 6 | ... | 20 |
 			125   = None
             126   = Main Menu
             127   = Show/Hide Keyboard
+			138   = Show/Hide Statusbar
 			128   = Pause
 			137	  = Reset
 			129   = Swap joysticks

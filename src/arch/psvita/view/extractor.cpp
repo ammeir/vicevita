@@ -53,7 +53,6 @@ Extractor* Extractor::getInst()
 
 const char* Extractor::extract(const char* archive_file, int drive)
 {
-	//PSV_DEBUG("Controller::extractFile()");
 	vector<string> tmp_files;
 	const char* game_path = archive_file;
 	char* file_buffer = NULL;

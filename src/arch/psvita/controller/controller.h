@@ -87,14 +87,16 @@ using std::string;
 using std::vector;
 
 class View;
+class Peripherals;
+struct dev_data_s;
 class Controller
 {
 
 private:
 	bool			m_inGame;
-	vector<string>	m_zipFileSlots;
 
 	string			getFileNameFromPath(const char* fpath);
+	string			getFileNameNoExt(const char* fpath);
 	void			changeJoystickPort(const char* port);
 	void			setCpuSpeed(const char* val);
 	void			setAudioPlayback(const char* val);
@@ -111,6 +113,8 @@ private:
 	void			setCartridgeReset(const char* val);
 	void			setMachineResetMode(const char* val);
 	void			setMouseSampling(const char* val);
+	int				getImageType(const char* image);
+	void			getImageFileContents(int peripheral, const char* image, const char*** values, int* size);
 	void			updatePalette();
 	void			resumeSound();
 	int				attachDriveImage(int drive, const char* image);
@@ -119,7 +123,6 @@ private:
 	void			detachDriveImage(int drive);
 	int				detachTapeImage();
 	void			detachCartridgeImage();
-	const char*		extractFile(const char *path, int drive = 8);
 
 public:
 					Controller();
@@ -133,16 +136,13 @@ public:
 	int				patchSaveState(patch_data_s* patch);
 	int				getSaveStatePatch(patch_data_s* patch_info);
 	int				getSaveStatePatchInfo(patch_data_s* patch_info);
-	void			getViewport(ViewPort* vp, bool borders);
+	int				getViewport(ViewPort* vp, bool borders);
 	void			syncSetting(int key);
 	void			syncPeripherals();
 	void			syncModelSettings();
 	void			setModelProperty(int key, const char* value);
-	void			getDiskImageFile(int drive, const char** image);
-	void			getImageFileContents(int peripheral, const char* image, const char*** values, int* size);
-	int				attachImage(int device, const char* image, const char** values, int size);
-	void			detachImage(int device, const char** values, int size);
-	int				getImageType(const char* image);
+	int				attachImage(int device, const char* image);
+	void			detachImage(int device);
 	void			setTapeControl(int action);
 	void			setCartControl(int action);
 	void			setBorderVisibility(const char* val);

@@ -61,6 +61,7 @@ class Settings : public Navigator, IRenderable
 private:
 	View*					m_view;
 	Controller*				m_controller;
+	string*					m_defSettings;
 	SettingsState			m_state;
 	int						m_highlight;
 	int						m_borderTop;
@@ -75,17 +76,11 @@ private:
 	int						m_posXValue;
 	int						m_maxValueWidth;
 	string					m_saveDir;
-	string					m_gameFile;
+	string					m_gameFileHeader;
 	string					m_confFileDesc;
 	RetCode					m_exitCode;
+	bool					m_userChanges;
 	
-	// Virtual function implementations
-	bool					isExit(int buttons); 
-	void					navigateUp(); 
-	void					navigateDown(); 
-	void					navigateRight(); 
-	void					buttonReleased(int button);
-
 	void					show();
 	void					render();
 	void					renderInstructions();
@@ -96,7 +91,16 @@ private:
 	void					handleViewSetting(int key, const char* value);
 	bool					fileExist(const char* file_name);
 	string					getDirOfFile(const char* file);
-	string					getConfFileDesc();
+	void					changeState();
+	void					loadDefSettingsArray();
+	int						cmpSettingsToDef();
+
+	// Virtual function implementations
+	bool					isExit(int buttons); 
+	void					navigateUp(); 
+	void					navigateDown(); 
+	void					navigateRight(); 
+	void					buttonReleased(int button);
 
 public:
 							Settings();
@@ -112,7 +116,10 @@ public:
 	void					applySettings(int group);
 	void					createConfFile(const char* file);
 	void					loadSettingsFromFile(const char* ini_file);
-	void					saveSettingsToFile(const char* ini_file);
+	void					saveSettingsToFile(const char* ini_file, bool over_write = true);
+	bool					settingsPopulatedInFile(const char* ini_file);
+	bool					settingsExistInFile(const char* ini_file);
+	void					settingsLoaded();
 	string					toString(int type);
 };
 

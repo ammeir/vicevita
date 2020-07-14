@@ -23,6 +23,7 @@ enum ctrl_pending_action_e{
 static bool	  gs_frameDrawn = false;
 static bool   gs_bootTime = true;	
 static bool	  gs_autofireOn = false;
+static bool   gs_autoStartInProgress = false;
 static int	  gs_autofireSpeed = 0;
 static int    gs_moduloDivider = 3;
 static int    gs_frameCounter = 0;
@@ -40,7 +41,6 @@ static int	  gs_scanScreenReadyTimer = 0;
 static bool   gs_scanMouse = false;
 static int	  gs_machineResetMode = 1;
 static string gs_loadProgramName;
-//static string gs_loadFileName;
 int			  g_joystickPort = 2;
 
 static void	 toggleJoystickPorts();

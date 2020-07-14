@@ -183,13 +183,13 @@ void View::handleMainMenuSelection(string& selection)
 	}
 	else if (!selection.compare("Reset")){
 		m_controller->resetComputer();
-		notifyReset();
 		m_inGame = true;
 		m_uiActive = false;
 	}
 	else if (!selection.compare("Resume game")){
 		if (g_game_file.empty()){
 			g_game_file = "BASIC";
+			updateControls();
 			updateSettings();
 		}
 		m_inGame = true;
@@ -257,19 +257,20 @@ void View::updateView()
 		// Split screen or full screen
 		if (g_keyboardMode != KEYBOARD_FULL_SCREEN){
 			static ViewPort vp;
+			
 			// Get borderless view for bigger screen.
-			m_controller->getViewport(&vp, false);
-
-			vita2d_draw_texture_part_scale(
-				m_view_tex, 
-				m_posXSplitView, 
-				m_posYSplitView, 
-				vp.x,
-				vp.y,
-				vp.width,
-				vp.height,
-				m_scaleXSplitView, 
-				m_scaleYSplitView);
+			if (m_controller->getViewport(&vp, false) == 0){
+				vita2d_draw_texture_part_scale(
+					m_view_tex, 
+					m_posXSplitView, 
+					m_posYSplitView, 
+					vp.x,
+					vp.y,
+					vp.width,
+					vp.height,
+					m_scaleXSplitView, 
+					m_scaleYSplitView);
+			}
 		}
 
 		m_keyboard->render();
@@ -524,7 +525,8 @@ void View::showStartGame()
 	}
 	while(ret);
 
-	if (!selection.empty()){ 
+	if (!selection.empty()){
+		updateControls();
 		updateSettings();
 		m_inGame = true;
 		m_uiActive = false;
@@ -555,6 +557,7 @@ void View::showPeripherals()
 		// User pressed Auto load.
 		m_inGame = true;
 		m_uiActive = false;
+		updateControls();
 		updateSettings();
 		// Vice only draws when necessary and if a game is in a still image a draw won't come.
 		// Draw the last buffer we got so we atleast respond to the button press. 
@@ -582,22 +585,40 @@ void View::showAbout()
 	m_about->doModal();
 }
 
-void View::updateSettings()
+void View::updateControls()
 {
-	// Load key mappings and settings from a configuration file.
+	// Load key mappings from a configuration file.
 
-	if (!m_controls || !m_settings)
+	if (!m_controls)
 		return;
-
+	
 	// Get game specific config file.
 	string conf_file  = getGameSaveDirPath() + CONF_FILE_NAME;
-	
-	// If file is missing get the default config file.
-	if (!fileExist(conf_file))
+
+	// If file or the value is missing, get the default config file.
+	if (!fileExist(conf_file) || !m_controls->mappingsExistInFile(conf_file.c_str()))
 		conf_file = DEF_CONF_FILE_PATH;
 
-	m_controls->fillMappingValuesFile(conf_file.c_str());
+	m_controls->loadMappingsFromFile(conf_file.c_str());
+}
+
+void View::updateSettings()
+{
+	// Load settings from a configuration file.
+
+	if (!m_settings)
+		return;
+	
+	// Get game specific config file.
+	string conf_file  = getGameSaveDirPath() + CONF_FILE_NAME;
+
+	// If file or the value is missing, get the default config file.
+	if (!fileExist(conf_file) || !m_settings->settingsPopulatedInFile(conf_file.c_str()))
+		conf_file = DEF_CONF_FILE_PATH;
+
 	m_settings->loadSettingsFromFile(conf_file.c_str());
+	// Inform settings of new content.
+	m_settings->settingsLoaded();
 	m_settings->applySettings(SETTINGS_ALL);
 }
 
@@ -664,7 +685,8 @@ void View::changeKeyboardMode(KeyboardMode value)
 		// View coordinations
 		static ViewPort vp;
 		// Get borderless viewport
-		m_controller->getViewport(&vp, false);
+		if (m_controller->getViewport(&vp, false) < 0)
+			break;
 		g_keyboardMode = value;
 		float scaleY = (float)276/vp.height; 
 		float scaleX = (float)16/9;//scaleY;
@@ -815,12 +837,13 @@ unsigned char* View::getThumbnail()
 	uint32_t* palette_tbl = (uint32_t*)vita2d_texture_get_palette(m_view_tex);
 	
 	if (!palette_tbl)
-		return 0;
+		return NULL;
 
 	static ViewPort vp;
 
 	// Remove the borders
-	m_controller->getViewport(&vp, false);
+	if (m_controller->getViewport(&vp, false) < 0)
+		return NULL;
 	
 	unsigned char* bitmap = new unsigned char[vp.width * vp.height * 3];
 	unsigned char* p = bitmap;
@@ -845,9 +868,11 @@ unsigned char* View::getThumbnail()
 
 void View::notifyReset()
 {
-	// Notification that model is about to reset
-	m_peripherals->notifyReset();
+	// Notification that Model is about to reset.
+
+	//m_peripherals->notifyReset();
 	m_statusbar->notifyReset();
+	updateControls();
 	updateSettings();
 }
 	

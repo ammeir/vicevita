@@ -134,6 +134,8 @@ private:
 	KeyboardMode	strToKeyboardMode(const char* value);
 	string			getFileNameNoExt(const char* fpath);
 	void			setHostCpuFrequency(const char* freq);
+	void			updateControls();
+	void			updateSettings();
 	void			cleanTmpDir();
 	void			printTestRect();
 
@@ -174,7 +176,6 @@ public:
 	void			getSettingValues(int key, const char** value, const char** src, const char*** values, int* size);
 	int				convertRGBToPixel(uint8_t red, uint8_t green, uint8_t blue);
 	bool			pendingRedraw();
-	void			updateSettings();
 };
 
 

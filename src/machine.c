@@ -69,6 +69,7 @@
 #include "video.h"
 #include "vsync.h"
 #include "zfile.h"
+#include "controller.h"
 
 /* #define DEBUGMACHINE */
 
@@ -207,6 +208,9 @@ void machine_reset(void)
     event_reset_ack();
 
     vsync_suspend_speed_eval();
+
+	// Notify View about the reset (PSVITA).
+	PSV_NotifyReset();
 }
 
 static void machine_maincpu_clk_overflow_callback(CLOCK sub, void *data)

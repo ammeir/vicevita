@@ -73,9 +73,10 @@ static const char* gs_datasetteControlValues[]	      = {"Stop","Play","Forward",
 static const char* gs_datasetteResetWithCPUValues[]	  = {"Enabled","Disabled"};
 static const char* gs_cartResetOnChangeValues[]	      = {"Enabled","Disabled"};
 
-
-static int gs_peripheralEntriesSize = 13;
-static PeripheralEntry gs_list[] = 
+// Globals
+dev_data_s				g_devDataSrc[6];
+static int				gs_peripheralEntriesSize = 13;
+static PeripheralEntry	gs_list[] = 
 {
 	{"Drive","","",0,0,"",1}, /* Header line */
 	{"Number", "DriveNumber",        "8",gs_driveIDValues,4,"",0,ST_MODEL,DRIVE_NUMBER,0,0},
@@ -129,13 +130,10 @@ void Peripherals::init(View* view, Controller* controller)
 	m_scrollBar.setListSize(gs_peripheralEntriesSize, MAX_ENTRIES);
 	m_scrollBar.setBackColor(GREY);
 	m_scrollBar.setBarColor(ROYAL_BLUE);
-
-	m_controller->setDevData(m_devDataSrc);
 }
 
 RetCode Peripherals::doModal()
 {
-	//PSV_DEBUG("Peripherals::doModal()");
 	m_exitCode = EXIT; 
 	m_controller->syncPeripherals();
 	show();
@@ -158,7 +156,7 @@ void Peripherals::buttonReleased(int button)
 			return;
 
 		gtShowMsgBoxNoBtn("Saving...", this);
-		sceKernelDelayThread(850000);
+		sceKernelDelayThread(750000);
 		saveSettingsToFile(DEF_CONF_FILE_PATH);
 		m_settingsChanged = false;
 		show();
@@ -338,7 +336,6 @@ void Peripherals::show()
 
 void Peripherals::render()
 { 
-	//PSV_DEBUG("Peripherals::render()");
 	int y = 60;
 	int key_color, val_color, arr_color;
 	int start = m_borderTop;
@@ -511,7 +508,9 @@ bool Peripherals::isActionAllowed(PeripheralsAction action)
 void Peripherals::loadSettingsFromFile(const char* ini_file)
 {
 	IniParser ini_parser;
-	ini_parser.init(ini_file);
+	
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
 
 	char key_value[128];
 
@@ -521,8 +520,13 @@ void Peripherals::loadSettingsFromFile(const char* ini_file)
 			continue;
 
 		memset(key_value, 0, 128);
-		if (!ini_parser.getKeyValue(INI_FILE_SEC_PERIPHERALS, gs_list[i].key_ini_name.c_str(), key_value) && strlen(key_value) != 0)
-			gs_list[i].value = key_value;
+		if (ini_parser.getKeyValue(INI_FILE_SEC_PERIPHERALS, gs_list[i].key_ini_name.c_str(), key_value) == INI_PARSER_KEY_NOT_FOUND) 
+			continue;
+			
+		if (strlen(key_value) == 0)
+			continue;
+
+		gs_list[i].value = key_value;
 	}
 }
 
@@ -573,9 +577,8 @@ string Peripherals::showFileBrowser(int peripheral)
 void Peripherals::saveSettingsToFile(const char* ini_file)
 {
 	IniParser ini_parser;
-	int res = ini_parser.init(ini_file);
 
-	if (res != INI_PARSER_OK)
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
 		return;
 
 	for (int i = 0; i<gs_peripheralEntriesSize; ++i){
@@ -671,11 +674,6 @@ void Peripherals::applyAllSettings()
 void Peripherals::notifyReset()
 {
 	// Computer is about to reset.
-
-	// Check if cartridge is attached and update the savestate location accordingly.
-	m_controller->syncSetting(CARTRIDGE);
-	string cartridge_name = getKeyValue(CARTRIDGE);
-	g_game_file = (cartridge_name == "Empty")? "BASIC": m_devDataSrc[DEV_CARTRIDGE].src_file;
 }
 	
 void Peripherals::handleModelSetting(int key, const char* value)
@@ -785,11 +783,11 @@ string Peripherals::getImageFileName()
 
 	if (gs_list[m_highlight].id == DRIVE){
 		int drive_id = getDriveId();
-		image_file = m_devDataSrc[drive_id-8].image_file;
+		image_file = g_devDataSrc[drive_id-8].image_file;
 	}else if (gs_list[m_highlight].id == DATASETTE){
-		image_file = m_devDataSrc[DEV_DATASETTE].image_file;
+		image_file = g_devDataSrc[DEV_DATASETTE].image_file;
 	}else if (gs_list[m_highlight].id == CARTRIDGE){
-		image_file = m_devDataSrc[DEV_CARTRIDGE].image_file;
+		image_file = g_devDataSrc[DEV_CARTRIDGE].image_file;
 	}
 
 	if (image_file.empty())
@@ -818,20 +816,18 @@ int Peripherals::attachImage(int device, const char* file)
 	if (index < 0)
 		return -1;
 	
-	if (m_controller->attachImage(device, file, gs_list[index].values, gs_list[index].values_size) < 0)
+	if (m_controller->attachImage(device, file) < 0)
 		return -1;
+
+	m_controller->syncSetting(device);
 
 	return 0;
 }
 
 void Peripherals::detachImage(int device)
 {
-	int index = getKeyIndex(device);
-	
-	if (index < 0)
-		return;
-
-	m_controller->detachImage(device, gs_list[index].values, gs_list[index].values_size);
+	m_controller->detachImage(device);
+	m_controller->syncSetting(device);
 }
 
 int	Peripherals::getKeyIndex(int key)

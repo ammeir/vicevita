@@ -75,6 +75,7 @@ private:
 	bool				isFileAccepted(const char* fname);
 	void				setFilter(const char** filter);
 	void				strToUpperCase(string& str);
+	void				addParentDirectory();
 	
 	// Navigator interface implementations
 	bool				isExit(int buttons); 
@@ -89,7 +90,6 @@ public:
 	string				doModal();
 	static FileExplorer* getInst();
 	int					readDirContent(const char* path);
-	void				addParentDirectory();
 	void				sortDirContent();
 	vector<DirEntry>&	getDirContent();
 	int					makeDir(const char* path);

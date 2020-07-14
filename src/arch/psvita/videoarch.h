@@ -5,7 +5,6 @@
 #include "vice.h"
 #include "types.h"
 #include "viewport.h"
-#include "controller.h"
 
 
 struct video_canvas_s {

@@ -62,6 +62,11 @@ int	IniParser::addKeyToSec(const char* section, const char* key, const char* val
 	return m_iniFile.addKeyToSec(section, key, value);
 }
 
+bool IniParser::valuesOccupied(const char* section)
+{
+	return m_iniFile.valuesOccupied(section);
+}
+
 char* IniParser::readToBuf(const char* ini_file)
 {
 	// Important: This function allocates memory from heap. Caller must deallocate (delete[]) after use.
@@ -234,6 +239,23 @@ int	IniFile::addKeyToSec(const char* section, const char* key, const char* value
 	}
 
 	return INI_PARSER_SECTION_NOT_FOUND;
+}
+
+bool IniFile::valuesOccupied(const char* section)
+{
+	for(vector<Section>::iterator it=m_sections.begin(); it!=m_sections.end(); ++it){
+
+		if (!(*it).name.compare(section)){
+		
+			for(vector<KeyValuePair>::iterator it2=(*it).keyValues.begin(); it2!=(*it).keyValues.end(); ++it2){
+				if ((*it2).value.empty()){
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 string IniFile::toString()

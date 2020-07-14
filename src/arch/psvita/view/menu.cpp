@@ -137,10 +137,10 @@ string	MainMenu::getSelection()
 void MainMenu::renderMenu()
 {
 	// Menu
-	vita2d_draw_texture(m_imgMenu, 305, 125);
+	vita2d_draw_texture(m_imgMenu, 305, 110);
 
 	// Arrow
-	vita2d_draw_texture(m_imgMenuArrow, 390, 185 + m_highlight*32);
+	vita2d_draw_texture(m_imgMenuArrow, 390, 170 + m_highlight*32);
 }
 
 void MainMenu::loadResources()

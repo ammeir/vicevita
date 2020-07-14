@@ -82,16 +82,17 @@ static const char* gs_defMapValues[] =
 	"Joystick fire",  "Return",             "None",          "Space",  
 	"Main menu",      "Keyboard",           "None",          "None",
     "None",           "None",               "None",          "None",
-	"None",           "None",               "None"
+	"None",           "None",				"None"
 };
 
 
 
 Controls::Controls()
 {
-	m_mapLookup = NULL;
 	m_controller = NULL;
 	m_settings = NULL;
+	m_mapLookup = NULL;
+	m_defMidArray = NULL;
 }
 
 Controls::~Controls()
@@ -105,6 +106,10 @@ Controls::~Controls()
 
 	if (m_mapLookup)
 		delete[] m_mapLookup;
+
+	if (m_defMidArray){
+		delete[] m_defMidArray;
+	}
 }
 
 
@@ -116,6 +121,7 @@ void Controls::init(Controller* controller, Settings* settings)
 	m_borderTop = 0;
 	m_borderBottom = MAX_ENTRIES-1;
 	m_mapLookup = new ControlPadMap[gs_entriesSize];
+	m_userChanges = false;
 
 	for(int i=0; i<gs_entriesSize; ++i){
 		m_list.push_back(string(gs_defMapValues[i]));
@@ -124,17 +130,20 @@ void Controls::init(Controller* controller, Settings* settings)
 	// Update the mapping lookup table.
 	updateKeyMapTable(m_list);
 
-	if (!keyMapsValueExist(DEF_CONF_FILE_PATH)){
-		// First run. Save lookup table values to the conf file.
+	if (!mappingsExistInFile(DEF_CONF_FILE_PATH)){
+		// First run, mappings are missing. Save map id values to the conf file.
+		saveKeyMapTable(DEF_CONF_FILE_PATH);
+	}
+	else if (!mappingsUpdatedInFile(DEF_CONF_FILE_PATH)){
+		// Mappings count don't match. This is a version update.
+		loadMappingsFromFile(DEF_CONF_FILE_PATH);
 		saveKeyMapTable(DEF_CONF_FILE_PATH);
 	}
 	else{
-		fillMappingValuesFile(DEF_CONF_FILE_PATH);
+		loadMappingsFromFile(DEF_CONF_FILE_PATH);
 	}
 
-	m_state = CTRL_STATE_DEFAULT_CONF;
-	m_confFileDesc = "[Default]";
-
+	loadDefMidArray();
 	loadResources();
 
 	m_scrollBar.init(SCROLL_BAR_X, SCROLL_BAR_Y, SCROLL_BAR_WIDTH, SCROLL_BAR_HEIGHT);
@@ -160,7 +169,7 @@ void Controls::show()
 void Controls::render()
 {
 	// File name
-	txtr_draw_text(15, 20, C64_BLUE, m_gameFile.c_str());
+	txtr_draw_text(15, 20, C64_BLUE, m_gameFileHeader.c_str());
 	// Conf file type
 	txtr_draw_text(855, 20, C64_BLUE, m_confFileDesc.c_str());
 	// Top seperation line
@@ -175,17 +184,10 @@ void Controls::render()
 
 void Controls::doModal(const char* save_dir, const char* file_name)
 {
-	if (m_saveDir != save_dir){
-		m_saveDir = save_dir;
-		m_confFileDesc = getConfFileDesc();
-		m_state = (m_confFileDesc == "[Default]")? CTRL_STATE_INGAME_DEFAULT_CONF: CTRL_STATE_GAME_CONF;
-	}
-
 	m_saveDir = save_dir;
-	m_confFileDesc = getConfFileDesc();
-	// Game file header name. Shrink the string to fit the screen.
+	changeState();
 	int max_width = 890 - txtr_get_text_width(m_confFileDesc.c_str(), 22);
-	m_gameFile = getDisplayFitString(file_name, max_width);
+	m_gameFileHeader = getDisplayFitString(file_name, max_width);
 
 	show();
 	scanCyclic();
@@ -215,17 +217,21 @@ void Controls::buttonReleased(int button)
 		sceKernelDelayThread(750000);
 		updateKeyMapTable(m_list);
 		saveKeyMapTable(conf_file_path.c_str());
-		m_state = (m_state == CTRL_STATE_INGAME_DEFAULT_CONF)? CTRL_STATE_DEFAULT_CONF: CTRL_STATE_GAME_CONF;
-		m_confFileDesc = getConfFileDesc();
+
+		if (conf_file_path == DEF_CONF_FILE_PATH){
+			loadDefMidArray();
+		}
+		m_userChanges = false;
+		changeState();
 		show();
 	}
 	else if (button == SCE_CTRL_CIRCLE){ 
 		// Load default key mappings
 		if (!isActionAllowed(CTRL_ACTION_LOAD_DEFAULT))
 			return;
-
-		fillMappingValuesFile(DEF_CONF_FILE_PATH);
-		m_state = (!m_gameFile.empty())? CTRL_STATE_INGAME_DEFAULT_CONF: m_state;
+		loadMappingsFromFile(DEF_CONF_FILE_PATH);
+		m_userChanges = true;
+		changeState();
 		show();
 	}
 }
@@ -278,8 +284,9 @@ void Controls::navigateRight()
 		
 		if (current != selection){
 			setMappingValue(m_highlight, selection);
-			m_state = (m_gameFile.empty())? CTRL_STATE_DEFAULT_MOD : CTRL_STATE_INGAME_MOD;
 			updateKeyMapTable(m_list);
+			m_userChanges = true;
+			changeState();
 		}
 	}
 
@@ -411,18 +418,7 @@ bool Controls::isActionAllowed(ControlsAction action)
 	};
 }
 
-string Controls::getConfFileDesc()
-{
-	string save_file_path = m_saveDir + CONF_FILE_NAME;
-	return (fileExist(save_file_path))? "[Custom]": "[Default]";
-}
-
-void Controls::setState(ControlsState state)
-{
-	m_state = state;
-}
-
-void Controls::fillMappingValuesFile(const char* ini_file)
+void Controls::loadMappingsFromFile(const char* ini_file)
 {
 	// Populate the map vector from a ini file source.
 	// Ini file can be game specific or default.
@@ -431,18 +427,23 @@ void Controls::fillMappingValuesFile(const char* ini_file)
 		return;
 
 	IniParser ini_parser;
-	ini_parser.init(ini_file);
+	
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
 
 	char keymaps_value[128] = {0};
 	int item_index = 0;
 
 	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
 
+	if (strlen(keymaps_value) == 0) // Empty value
+		return;
+
 	char* token = strtok(keymaps_value, ",");
 
 	if (!token)
 		return;
-
+	
 	while (token) {
 		int iToken = atoi(token);
 		const char* entry = midToName(iToken);
@@ -457,18 +458,15 @@ void Controls::fillMappingValuesFile(const char* ini_file)
 		token = strtok(NULL, ",");
 	}
 
-	// Update the new state
-	if (!strcmp(ini_file, DEF_CONF_FILE_PATH)){
-		m_state = (g_game_file.empty())? CTRL_STATE_DEFAULT_CONF: CTRL_STATE_INGAME_DEFAULT_CONF;
-	}
-	else
-		m_state = CTRL_STATE_GAME_CONF;
-
+	
 	// Update the mapping lookup table to reflect the changes.
-	updateKeyMapTable(m_list);
+	if (item_index > 0){
+		updateKeyMapTable(m_list);
+		m_userChanges = false; // No need to show Save button in instructions.
+	}
 }
 
-void Controls::fillMappingValuesBuf(const char* buffer)
+void Controls::loadMappingsFromBuf(const char* buffer)
 {
 	// Populate the map vector from buffer source.
 	// Buffer is game specific as it originates from a snapshot file.
@@ -504,11 +502,57 @@ void Controls::fillMappingValuesBuf(const char* buffer)
 	}
 
 	if (item_index > 0){
-		m_state = CTRL_STATE_GAME_CONF;
 		updateKeyMapTable(m_list);
+		m_userChanges = false;
 	}
 
 	delete[] keymap_values;
+}
+
+bool Controls::mappingsUpdatedInFile(const char* ini_file)
+{
+	// Returns true if all current mappings exist int the file.
+
+	bool ret = false;
+	IniParser ini_parser;
+	
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return false;
+
+	char keymaps_value[128] = {0};
+	int token_count = 0;
+	
+	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
+	
+	char* token = strtok(keymaps_value, ",");
+
+	while (token) {
+		token_count++;
+		token = strtok(NULL, ",");
+	}
+
+	if (token_count == gs_entriesSize)
+		ret = true;
+
+	return ret;
+}
+
+bool Controls::mappingsExistInFile(const char* ini_file)
+{
+	// Returns true if mappings key value exist int the file.
+
+	IniParser ini_parser;
+	
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return false;
+
+	char keymaps_value[128] = {0};
+	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
+
+	if (strlen(keymaps_value) == 0)
+		return false;
+	
+	return true;
 }
 
 void Controls::getMappingValue(int item_index, string& ret)
@@ -572,19 +616,20 @@ void Controls::updateKeyMapTable(vector<string>& updateVec)
 	}
 }
 
-void Controls::saveKeyMapTable(const char* file_path)
+void Controls::saveKeyMapTable(const char* ini_file)
 {
-	if (!file_path)
+	if (!ini_file)
 		return;
 
 	IniParser ini_parser;
 	string keymaps_value;
 
-	ini_parser.init(file_path);
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
 
 	char buf[32];
 
-	// Keymap table to string
+	// Keymap table to string.
 	for (int i=0;i<gs_entriesSize; ++i){
 		sprintf(buf, "%d",  m_mapLookup[i].mid); // sprintf adds a terminating null character after the content
 		keymaps_value.append(buf);
@@ -593,7 +638,7 @@ void Controls::saveKeyMapTable(const char* file_path)
 	}
 
 	ini_parser.setKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value.c_str());
-	ini_parser.saveToFile(file_path);
+	ini_parser.saveToFile(ini_file);
 }
 
 string Controls::showValuesListBox(const char** values, int size)
@@ -610,31 +655,6 @@ bool Controls::fileExist(string& file_name)
         return false;
     }   
 }
-
-bool Controls::keyMapsValueExist(const char* ini_file)
-{
-	bool ret = false;
-	IniParser ini_parser;
-	ini_parser.init(ini_file);
-
-	char keymaps_value[128] = {0};
-	int token_count = 0;
-	
-	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
-	
-	char* token = strtok(keymaps_value, ",");
-
-	while (token) {
-		token_count++;
-		token = strtok(NULL, ",");
-	}
-
-	if (token_count == gs_entriesSize)
-		ret = true;
-
-	return ret;
-}
-
 
 void Controls::createConfFile(const char* ini_file)
 {
@@ -903,5 +923,74 @@ string Controls::getDisplayFitString(const char* str, int limit, float font_size
 	ret.append("...");
 
 	return ret;
+}
+
+void Controls::changeState()
+{
+	int diff = cmpMidsToDef();
+
+	if (m_saveDir.empty()){ 
+		// This is a case when the app was just started and no game/basic is yet loaded.
+		m_state = (diff)? CTRL_STATE_DEFAULT_MOD: CTRL_STATE_DEFAULT_CONF;
+		m_confFileDesc = "[Default]";
+		return;
+	}
+
+	// Game or Basic loaded.
+	if (diff){
+		m_state = m_userChanges? CTRL_STATE_INGAME_MOD: CTRL_STATE_GAME_CONF;
+		m_confFileDesc = "[Custom]";
+	}else{
+		m_state = m_userChanges? CTRL_STATE_INGAME_DEFAULT_CONF: CTRL_STATE_DEFAULT_CONF;
+		m_confFileDesc = "[Default]";
+	}
+}
+
+void Controls::loadDefMidArray()
+{
+	// Parse default key mappings into a map id array.
+
+	if (!m_defMidArray){
+		m_defMidArray = new int[gs_entriesSize];
+	}
+
+	IniParser ini_parser;
+	
+	if (ini_parser.init(DEF_CONF_FILE_PATH) != INI_PARSER_OK)
+		return;
+
+	char keymaps_value[128] = {0};
+	int item_index = 0;
+
+	ini_parser.getKeyValue(INI_FILE_SEC_CONTROLS, INI_FILE_KEY_KEYMAPS, keymaps_value);
+
+	if (strlen(keymaps_value) == 0) // Empty value
+		return;
+
+	char* token = strtok(keymaps_value, ",");
+
+	if (!token)
+		return;
+	
+	int i = 0;
+	while (token) {
+		m_defMidArray[i++] = atoi(token);
+		token = strtok(NULL, ",");
+	}
+}
+
+int	Controls::cmpMidsToDef()
+{
+	// Returns 0 if current mappings equal to default mappings.
+
+	if (!m_defMidArray)
+		return -1;
+
+	for (int i=0;i<gs_entriesSize; ++i){
+		if (m_mapLookup[i].mid != m_defMidArray[i])
+			return 1;
+	}
+
+	return 0;
 }
 

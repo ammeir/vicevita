@@ -64,7 +64,7 @@ void About::show()
 
 	vita2d_draw_texture(m_rainbowLogo, 325, 150);
 		
-	txtr_draw_text(400, 170, YELLOW, "VICE VITA C64  v.1.0");
+	txtr_draw_text(400, 170, YELLOW, "VICE VITA C64  v.1.1");
 	txtr_draw_text(325, 220, YELLOW, "Commodore 64 emulator written by:");
 	txtr_draw_text(325, 250, YELLOW, "2019-2020   Amnon-Dan Meir.");
 	txtr_draw_text(325, 280, YELLOW, "1998-2018   VICE team.");

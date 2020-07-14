@@ -211,11 +211,7 @@ void SaveSlots::buttonReleased(int button)
 			gtShowMsgBoxNoBtn("Saving...", this);
 			
 			// Save snaphot and patch it with thumbnail and settings.
-			if (m_controller->saveState(snap_file.c_str()) < 0){
-				gtShowMsgBoxOk("Save failed");
-				show();
-				break;
-			}
+			m_controller->saveState(snap_file.c_str());
 			addThumbToSnap(snap_file.c_str());
 			addSettingsToSnap(snap_file.c_str());
 			populateGrid();
@@ -521,7 +517,12 @@ void SaveSlots::populateGrid()
 
 void SaveSlots::setState()
 {
-	m_state = g_game_file.empty()? SAVESLOTS_INITIAL: SAVESLOTS_INGAME_NOSAVES;
+	m_state = SAVESLOTS_INITIAL;
+
+	if (g_game_file.empty())
+		return;
+	
+	m_state = SAVESLOTS_INGAME_NOSAVES;
 
 	for (int i=0; i<2; i++){
 		for (int j=0; j<3; j++){
@@ -956,19 +957,16 @@ int SaveSlots::applyPatchModuleSettings(const char* snapshot)
 		token = strtok(NULL, SNAP_MOD_DELIM_ENTRY);
 	}
 
-	// We do this last because loadMappingsFromBuf() also uses strtok.
+	// We do this last because fillMappingValuesBuf() also uses strtok.
 	if (!keymaps.empty()){
-		m_controls->loadMappingsFromBuf(keymaps.c_str());
+		m_controls->fillMappingValuesBuf(keymaps.c_str());
 	}
-
-	// Inform settings of new content
-	m_settings->settingsLoaded();
 
 	// View related settings.
 	m_settings->applySettings(SETTINGS_VIEW); 
 	// Model related settings but missing in the vanilla snap. 
 	m_settings->applySettings(SETTINGS_MODEL_NOT_IN_SNAP); 
-
+	
 	delete[] settings;
 	return 0;
 }

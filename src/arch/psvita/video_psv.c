@@ -287,12 +287,14 @@ void video_psv_menu_show()
 
 void video_psv_update_palette()
 {
+	if (!activeCanvas)
+		return;
+
 	// Request to update the View palette
 	if (!activeCanvas->videoconfig->color_tables.updated){ 
 		// Colors need an update.
 		video_color_update_palette(activeCanvas);
 	}
-
 	video_canvas_set_palette(activeCanvas, activeCanvas->palette);
 }
 

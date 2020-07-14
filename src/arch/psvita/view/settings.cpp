@@ -109,10 +109,14 @@ static SettingsEntry gs_list[] =
 
 Settings::Settings()
 {
+	m_defSettings = NULL;
 }
 
 Settings::~Settings()
 {
+	if (m_defSettings){
+		delete[] m_defSettings;
+	}
 }
 
 void Settings::init(View* view, Controller* controller)
@@ -124,8 +128,9 @@ void Settings::init(View* view, Controller* controller)
 	m_borderBottom = MAX_ENTRIES-1;
 	m_posXValue = 280;
 	m_maxValueWidth = 850 - m_posXValue;
+	m_userChanges = false;
 
-	// Set function pointers for the handlers
+	// Set function pointers for the handlers.
 	for (int i=0; i<gs_settingsEntriesSize; i++){
 		
 		if (gs_list[i].isHeader)
@@ -136,9 +141,15 @@ void Settings::init(View* view, Controller* controller)
 			gs_list[i].handler = &Settings::handleViewSetting;
 	}
 
+	if (!settingsExistInFile(DEF_CONF_FILE_PATH)){
+		// We enter here in following cases:
+		// - Key values empty (first run of the app).
+		// - Missing keys (new version update).
+		saveSettingsToFile(DEF_CONF_FILE_PATH, false);
+	}
+	
 	loadSettingsFromFile(DEF_CONF_FILE_PATH);
-	m_state = STN_STATE_DEFAULT_CONF;
-	m_confFileDesc = "[Default]";
+	loadDefSettingsArray();
 
 	m_scrollBar.init(SCROLL_BAR_X, SCROLL_BAR_Y, SCROLL_BAR_WIDTH, SCROLL_BAR_HEIGHT);
 	m_scrollBar.setListSize(gs_settingsEntriesSize, MAX_ENTRIES);
@@ -148,15 +159,11 @@ void Settings::init(View* view, Controller* controller)
 
 RetCode Settings::doModal(const char* save_dir, const char* file_name)
 {
-	if (m_saveDir != save_dir){
-		m_saveDir = save_dir;
-		m_state = (m_confFileDesc == "[Default]")? STN_STATE_INGAME_DEFAULT_CONF: STN_STATE_GAME_CONF;
-	}
-
-	m_confFileDesc = getConfFileDesc();
+	m_saveDir = save_dir;
+	changeState();
 	// Game file header name. Shrink the string to fit the screen.
 	int max_width = 890 - txtr_get_text_width(m_confFileDesc.c_str(), 22);
-	m_gameFile = getDisplayFitString(file_name, max_width);
+	m_gameFileHeader = getDisplayFitString(file_name, max_width);
 	m_exitCode = EXIT;
 	show();
 	scanCyclic();	
@@ -173,14 +180,21 @@ void Settings::buttonReleased(int button)
 		if (!isActionAllowed(STN_ACTION_SAVE))
 			return;
 
-		string conf_file_path;
-		conf_file_path = m_saveDir.empty()? DEF_CONF_FILE_PATH: m_saveDir + CONF_FILE_NAME;
+		string conf_file_path = m_saveDir.empty()? DEF_CONF_FILE_PATH: m_saveDir + CONF_FILE_NAME;
 		
+		// Create config.ini if it doesn't exist
+		if (!fileExist(conf_file_path.c_str())){
+			createConfFile(conf_file_path.c_str());
+		}
 		gtShowMsgBoxNoBtn("Saving...", this);
 		sceKernelDelayThread(850000);
 		saveSettingsToFile(conf_file_path.c_str());
-		m_state = (m_state == STN_STATE_DEFAULT_MOD)? STN_STATE_DEFAULT_CONF: STN_STATE_GAME_CONF;
-		m_confFileDesc = getConfFileDesc();
+
+		if (conf_file_path == DEF_CONF_FILE_PATH){
+			loadDefSettingsArray();
+		}
+		m_userChanges = false;
+		changeState();
 		show();
 		break;
 		}
@@ -190,7 +204,8 @@ void Settings::buttonReleased(int button)
 			return;
 		loadSettingsFromFile(DEF_CONF_FILE_PATH);
 		applySettings(SETTINGS_ALL);
-		m_state = (!m_gameFile.empty())? STN_STATE_INGAME_DEFAULT_CONF: m_state;
+		m_userChanges = true;
+		changeState();
 		show();
 		break;
 	};
@@ -272,7 +287,8 @@ void Settings::navigateRight()
 		if (gs_list[m_highlight].value != selection){
 			gs_list[m_highlight].value = selection;
 			(this->*gs_list[m_highlight].handler)(gs_list[m_highlight].id, gs_list[m_highlight].value.c_str());
-			m_state = (m_gameFile.empty())? STN_STATE_DEFAULT_MOD : STN_STATE_INGAME_MOD;
+			m_userChanges = true;
+			changeState();
 		}
 	}
 
@@ -296,7 +312,7 @@ void Settings::render()
 	int y = 60;
 	
 	// Game file name
-	txtr_draw_text(15, 20, C64_BLUE, m_gameFile.c_str());
+	txtr_draw_text(15, 20, C64_BLUE, m_gameFileHeader.c_str());
 	// Conf file type
 	txtr_draw_text(855, 20, C64_BLUE, m_confFileDesc.c_str());
 	// Top seperation line
@@ -427,7 +443,9 @@ bool Settings::isActionAllowed(SettingsAction action)
 void Settings::loadSettingsFromFile(const char* ini_file)
 {
 	IniParser ini_parser;
-	ini_parser.init(ini_file);
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
 
 	char key_value[128];
 
@@ -437,18 +455,17 @@ void Settings::loadSettingsFromFile(const char* ini_file)
 			continue;
 
 		memset(key_value, 0, 128);
-		if (!ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), key_value) && strlen(key_value) != 0)
-			gs_list[i].value = key_value;
+		if (ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), key_value) == INI_PARSER_KEY_NOT_FOUND) 
+			continue;
+			
+		if (strlen(key_value) == 0)
+			continue;
+
+		gs_list[i].value = key_value;
 		
 		if (gs_list[i].id == CPU_SPEED) // % is not in ini file (HACK).
 			gs_list[i].value.append("%");
 	}
-
-	// Update the new state.
-	if (!strcmp(ini_file, DEF_CONF_FILE_PATH))
-		m_state = (g_game_file.empty())? STN_STATE_DEFAULT_CONF: STN_STATE_INGAME_DEFAULT_CONF;
-	else
-		m_state = STN_STATE_GAME_CONF;
 }
 
 string Settings::showValuesListBox(const char** values, int size)
@@ -458,28 +475,37 @@ string Settings::showValuesListBox(const char** values, int size)
 	return gtShowListBox(x, m_highligtBarYpos-1, 0, 0, values, size, this, gs_list[m_highlight].value.c_str());
 }
 
-void Settings::saveSettingsToFile(const char* ini_file)
+void Settings::saveSettingsToFile(const char* ini_file, bool over_write)
 {
 	IniParser ini_parser;
-	int res = ini_parser.init(ini_file);
 
-	if (res != INI_PARSER_OK)
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
 		return;
+
+	char key_value[128] = {0};
 
 	for (int i = 0; i<gs_settingsEntriesSize; ++i){
 
 		if (gs_list[i].isHeader)
 			continue;
 
-		int ret = ini_parser.setKeyValue(INI_FILE_SEC_SETTINGS, 
-										gs_list[i].key_ini_name.c_str(), 
-										gs_list[i].value.c_str());	
+		int ret = ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), key_value);
 
 		if (ret == INI_PARSER_KEY_NOT_FOUND){
 			// Old ini file version. Add new key/value pair.
-			ini_parser.addKeyToSec(INI_FILE_SEC_SETTINGS, 
-									gs_list[i].key_ini_name.c_str(), 
-									gs_list[i].value.c_str());
+			ini_parser.addKeyToSec(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), gs_list[i].value.c_str());
+			continue;
+		}
+
+		if (strlen(key_value) == 0){
+			// Key exist without value.
+			ini_parser.setKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), gs_list[i].value.c_str());	
+			continue;
+		}
+		
+		// Value exist. 
+		if (over_write){
+			ini_parser.setKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), gs_list[i].value.c_str());	
 		}
 	}
 
@@ -638,45 +664,45 @@ void Settings::createConfFile(const char* file)
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "[Settings]");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "VICIIModel=PAL");
+		strcat(buf, "VICIIModel=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "SIDEngine=FastSID");
+		strcat(buf, "SIDEngine=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "SIDModel=6581");
+		strcat(buf, "SIDModel=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "AspectRatio=16:9");
+		strcat(buf, "AspectRatio=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "TextureFilter=Linear");
+		strcat(buf, "TextureFilter=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "ColorPalette=Colodore");
+		strcat(buf, "ColorPalette=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "Borders=Hide");
+		strcat(buf, "Borders=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "JoystickPort=Port 2");
+		strcat(buf, "JoystickPort=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "JoystickSide=Left");
+		strcat(buf, "JoystickSide=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "AutofireSpeed=Fast");
+		strcat(buf, "AutofireSpeed=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "KeyboardMode=Split screen");
+		strcat(buf, "KeyboardMode=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "CPUSpeed=100");
+		strcat(buf, "CPUSpeed=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "HostCPUSpeed=333 MHz");
+		strcat(buf, "HostCPUSpeed=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "Sound=Enabled");
+		strcat(buf, "Sound=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "Reset=Hard");
+		strcat(buf, "Reset=");
 		strcat(buf, "\x0D\x0A");
 		strcat(buf, "[Peripherals]");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "DriveTrueEmulation=Fast");
+		strcat(buf, "DriveTrueEmulation=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "DriveSoundEmulation=Disabled");
+		strcat(buf, "DriveSoundEmulation=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "DatasetteResetWithCPU=Enabled");
+		strcat(buf, "DatasetteResetWithCPU=");
 		strcat(buf, "\x0D\x0A");
-		strcat(buf, "CartridgeReset=Enabled");
+		strcat(buf, "CartridgeReset=");
 		strcat(buf, "\x0D\x0A");
 		
 		fileExp.writeToFile(file, buf, strlen(buf));
@@ -796,10 +822,130 @@ string Settings::getDirOfFile(const char* file)
 	return str;
 }
 
-string Settings::getConfFileDesc()
+void Settings::changeState()
 {
-	string save_file_path = m_saveDir + CONF_FILE_NAME;
-	return (fileExist(save_file_path.c_str()))? "[Custom]": "[Default]";
+	int diff = cmpSettingsToDef();
+
+	if (m_saveDir.empty()){ 
+		// This is a case when the app was just started and no game/basic is yet loaded.
+		m_state = (diff)? STN_STATE_DEFAULT_MOD: STN_STATE_DEFAULT_CONF;
+		m_confFileDesc = "[Default]";
+		return;
+	}
+
+	// Game or Basic loaded.
+	if (diff){
+		m_state = m_userChanges? STN_STATE_INGAME_MOD: STN_STATE_GAME_CONF;
+		m_confFileDesc = "[Custom]";
+	}else{
+		m_state = m_userChanges? STN_STATE_INGAME_DEFAULT_CONF: STN_STATE_DEFAULT_CONF;
+		m_confFileDesc = "[Default]";
+	}
+}
+
+bool Settings::settingsExistInFile(const char* ini_file)
+{
+	// Returns true if all current keys exist in the file and the values are not empty.
+
+	if (!ini_file)
+		return false;
+
+	IniParser ini_parser;
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return false;
+
+	char keymaps_value[128];
+
+	for (int i=0; i<gs_settingsEntriesSize; i++){
+
+		if (gs_list[i].isHeader)
+			continue;
+		
+		// Check if key exist.
+		if (ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), keymaps_value) == INI_PARSER_KEY_NOT_FOUND)
+			return false;
+
+		// Check if value exist.
+		if (strlen(keymaps_value) == 0)
+			return false;
+	}
+
+	return true;
+}
+
+bool Settings::settingsPopulatedInFile(const char* ini_file)
+{
+	// Returns true if all settings that are found in the file have values (not empty).
+
+	if (!ini_file)
+		return false;
+
+	IniParser ini_parser;
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return false;
+
+	if (!ini_parser.valuesOccupied(INI_FILE_SEC_SETTINGS))
+		return false;
+
+	return true;
+}
+
+
+void Settings::loadDefSettingsArray()
+{
+	
+	if (!m_defSettings){
+		m_defSettings = new string[gs_settingsEntriesSize];
+	}
+
+	IniParser ini_parser;
+	
+	if (ini_parser.init(DEF_CONF_FILE_PATH) != INI_PARSER_OK)
+		return;
+
+	char key_value[128];
+
+	for (int i=0; i<gs_settingsEntriesSize; i++){
+
+		if (gs_list[i].isHeader)
+			continue;
+
+		if (ini_parser.getKeyValue(INI_FILE_SEC_SETTINGS, gs_list[i].key_ini_name.c_str(), key_value) == INI_PARSER_KEY_NOT_FOUND) 
+			continue;
+		
+		m_defSettings[i] = key_value;
+
+		if (gs_list[i].id == CPU_SPEED) // % is not in ini file (HACK).
+			m_defSettings[i].append("%");
+	}
+}
+
+int	Settings::cmpSettingsToDef()
+{
+	// Returns 0 if current settings equal to default settings.
+
+	if (!m_defSettings){
+		return -1;
+	}
+
+	for (int i=0; i<gs_settingsEntriesSize; i++){
+
+		if (gs_list[i].isHeader)
+			continue;
+
+		if (gs_list[i].value != m_defSettings[i])
+			return 1;
+	}
+
+	return 0;
+}
+
+void Settings::settingsLoaded()
+{
+	// Notification that client has loaded new settings.
+	m_userChanges = false;
 }
 
 

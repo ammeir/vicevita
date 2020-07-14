@@ -30,7 +30,7 @@
 #include <vector>
 #include <string>
 
-// Device data that Control needs.
+// Source files of the data in devices.
 struct dev_data_s{
 	string	src_file;  // This is the initial file. If compressed the zip file name is stored here.
 	string	image_file; // The actual image file e.g d64, crt, tap etc.
@@ -44,6 +44,8 @@ typedef enum {
 	PERIF_ACTION_FREEZE
 } PeripheralsAction;
 
+
+extern dev_data_s g_devDataSrc[6];
 
 class Controller;
 class vita2d_texture;

@@ -190,7 +190,6 @@ extern "C" void PSV_ScanControls()
 			if (!ui_emulation_is_paused()){ // Reseting in pause state causes freeze.
 				machine_trigger_reset(gs_machineResetMode);
 				keyboard_clear_keymatrix(); // Empty the key buffer.
-				gs_view->notifyReset();
 			}
 			break;
 		case 138: // Show/hide status bar
@@ -313,10 +312,22 @@ extern "C" int	PSV_ShowMessage(const char* msg, int msg_type)
 
 extern "C" void	PSV_NotifyReset()
 {
+	// Model is restarting.
+	if (gs_bootTime) // Wait until Model is initialized.
+		return;
+
+	// Check if cartridge is attached and update the savestate location accordingly.
+	// Loading a game with autodetect performs a restart so wan't to make an exception on that case.
+	if (!gs_autoStartInProgress){
+		const char* cart_file_name = cartridge_get_file_name(cart_getid_slotmain());
+		g_game_file = (!cart_file_name)? "BASIC": g_devDataSrc[DEV_CARTRIDGE].src_file;
+	}
+
 	gs_view->notifyReset();
 	gs_scanScreenPressPlayTimer = 0;
 	gs_scanScreenLoadingTimer = 0;
 	gs_scanScreenReadyTimer = 0;
+	gs_autoStartInProgress = false;
 }
 
 Controller::Controller()
@@ -334,10 +345,6 @@ void Controller::init(View* view)
 
 int Controller::loadFile(int load_type, const char* file, int index)
 {
-	//PSV_DEBUG("Controller::loadFile");
-	//PSV_DEBUG("Image: %s", file);
-	//PSV_DEBUG("index: %d", index);
-	
 	int ret = 0;
 
 	switch (load_type){
@@ -346,8 +353,6 @@ int Controller::loadFile(int load_type, const char* file, int index)
 
 		if (!file)
 			return -1;
-
-		//PSV_DEBUG("CTRL_AUTO_DETECT_LOAD");
 
 		gtShowMsgBoxNoBtn("Loading...");
 
@@ -361,14 +366,15 @@ int Controller::loadFile(int load_type, const char* file, int index)
 
 		// Remove any attached cartridge or it will be loaded instead.
 		cartridge_detach_image(-1);
-
-		// This is not necessary but we also remove any attached disk or tape.
-		//detachTapeImage();
-		//detachDriveImage(8);
+		
+		// Taps can cause issues when saving disk/cart games. 
+		if (isTapOnTape()){
+			detachImage(DATASETTE);
+		}
 
 		// Sometimes a tape won't run without reseting the datasette.
 		datasette_control(DATASETTE_CONTROL_RESET);
-	
+
 		// This prevents sound loss when loading game when previous load hasn't finished.
 		resources_set_int(VICE_RES_WARP_MODE, 0); 
 
@@ -396,37 +402,33 @@ int Controller::loadFile(int load_type, const char* file, int index)
 		if (image_type == IMAGE_DISK || image_type == IMAGE_PROGRAM){
 			// Notify disk presence (statusbar). Autodetect always uses drive 8.
 			gs_view->setDriveDiskPresence(0, 1);
-			m_devDataSrc[DEV_DRIVE8].src_file = file;
-			m_devDataSrc[DEV_DRIVE8].image_file = image_file;
+			g_devDataSrc[DEV_DRIVE8].src_file = file;
+			g_devDataSrc[DEV_DRIVE8].image_file = image_file;
 			// Sync the device already now so we won't get a slight freezing effect when going to devices menu.
 			syncSetting(DRIVE); 
 		}else if (image_type == IMAGE_TAPE){
-			m_devDataSrc[DEV_DATASETTE].src_file = file;
-			m_devDataSrc[DEV_DATASETTE].image_file = image_file;
+			g_devDataSrc[DEV_DATASETTE].src_file = file;
+			g_devDataSrc[DEV_DATASETTE].image_file = image_file;
 			syncSetting(DATASETTE); 
 		}else if (image_type == IMAGE_CARTRIDGE){
-			m_devDataSrc[DEV_CARTRIDGE].src_file = file;
-			m_devDataSrc[DEV_CARTRIDGE].image_file = image_file;
+			g_devDataSrc[DEV_CARTRIDGE].src_file = file;
+			g_devDataSrc[DEV_CARTRIDGE].image_file = image_file;
 		}
 
+		gs_autoStartInProgress = true;
 		g_game_file = file; 
 		break;
 		}
 	case CTRL_CART_LOAD:
 		// Cart is already in the slot. Reset will load the game.
-		//PSV_DEBUG("CTRL_CART_LOAD");
 		pauseEmulation(false);
 		machine_trigger_reset(MACHINE_RESET_MODE_HARD);
-		g_game_file = m_devDataSrc[DEV_CARTRIDGE].src_file;
-		gs_view->notifyReset();
 		break;
 	case CTRL_DISK_LOAD:
 		{
 
 		if (isCpuInRam()) 
 			return -1; 
-
-		//PSV_DEBUG("CTRL_DISK_LOAD");
 
 		// This prevents sound loss when loading game when previous load hasn't finished.
 		resources_set_int(VICE_RES_WARP_MODE, 0); 
@@ -453,7 +455,7 @@ int Controller::loadFile(int load_type, const char* file, int index)
 			lib_free(prg_name);
 		}
 
-		g_game_file = m_devDataSrc[drive_id-8].src_file;
+		g_game_file = g_devDataSrc[drive_id-8].src_file;
 		gs_loadProgramName = !str_prg_name.empty()? str_prg_name.c_str(): "*";
 
 		setPendingAction(CTRL_ACTION_KBDCMD_LOAD_DISK);
@@ -464,11 +466,9 @@ int Controller::loadFile(int load_type, const char* file, int index)
 		{
 		if (!tape_image_dev1)
 			return -1;
-
+		
 		if (isCpuInRam()) 
 			return -1; 
-      
-		//PSV_DEBUG("CTRL_TAPE_LOAD");
 
 		string str_prg_name;
 
@@ -516,7 +516,7 @@ int Controller::loadFile(int load_type, const char* file, int index)
 			return -1;
 		}
 
-		g_game_file = m_devDataSrc[DEV_DATASETTE].src_file;
+		g_game_file = g_devDataSrc[DEV_DATASETTE].src_file;
 		gs_loadProgramName = str_prg_name.c_str();
 
 		setPendingAction(CTRL_ACTION_KBDCMD_LOAD_TAPE);
@@ -558,7 +558,39 @@ int Controller::loadState(const char* file)
 
 int Controller::saveState(const char* file_name)
 {
+	// Saving a state when a tap file is attached to the datasette can be problematic.
+	// The snapshot sometimes "remembers" the tape and won't start without it.
+	// The problematic scenario is when we are saving disk/cartridge games while having a tap file
+	// attached to the datasette. The snapshots save but won't start without the tape attached again.
+	// The workaround here is to detach any tap file before saving and then attaching it back.
+	
+	string current_game;
+	string datasette_game;
+	string attached_image_file;
+
+	if (!isTapOnTape())
+		goto case_normal;
+
+	if (!tape_image_dev1->name)
+		goto case_normal;
+
+	attached_image_file = tape_image_dev1->name;
+
+	// Check if this is a datasette snapshot.
+	current_game = getFileNameNoExt(g_game_file.c_str());
+	datasette_game = getFileNameNoExt(g_devDataSrc[DEV_DATASETTE].src_file.c_str());
+
+	if (current_game != datasette_game)
+		goto case_exception; // Disk or cartridge
+
+case_normal:
 	return machine_write_snapshot(file_name, 0, 0, 0);
+
+case_exception:
+	tape_image_detach(1);
+	int ret = machine_write_snapshot(file_name, 0, 0, 0);
+	tape_image_attach(1, attached_image_file.c_str());
+	return ret;
 }
 
 int Controller::patchSaveState(patch_data_s* patch)
@@ -866,6 +898,9 @@ void Controller::setBorderVisibility(const char* val)
 
 	video_psv_get_canvas(&canvas);
 
+	if (!canvas)
+		return;
+
 	if (!strcmp(val,"Hide")){
 		width = canvas->geometry->gfx_size.width;
 		height = canvas->geometry->gfx_size.height;
@@ -939,11 +974,6 @@ void Controller::setJoystickAutofireSpeed(const char* val)
 		gs_moduloDivider = 12; // PAL: 2 clicks/s  NTSC 2 clicks/s
 
 	gs_frameCounter = 0;
-}
-
-void Controller::setDevData(dev_data_s* dev_data)
-{
-	m_devDataSrc = dev_data;
 }
 
 void Controller::setViciiModel(const char* val)
@@ -1124,19 +1154,11 @@ int Controller::detachTapeImage()
 void Controller::detachCartridgeImage()
 {
 	cartridge_detach_image(-1);
-
-	// Detaching cartridge will result in a hard reset if 'CartridgeReset' is set.
-	int cartridge_reset;
-	resources_get_int(VICE_RES_CARTRIDGE_RESET, &cartridge_reset);
-	if (cartridge_reset)
-		gs_view->notifyReset();
 }
 
 void Controller::syncSetting(int key)
 {
 	// Sync setting with VICE.
-
-	//PSV_DEBUG("syncSetting(), key=%d", key);
 
 	const char*		dev_image_file = NULL;  // Image attached to the device
 	const char*		dev_data_src = NULL;	// Data source of devices. Can be the same as image_file or a zip file.
@@ -1148,15 +1170,17 @@ void Controller::syncSetting(int key)
 	switch (key){
 	case DRIVE:
 	case DATASETTE:
+	{
+		int drive_id;
 
 		// Get the attached images.
 		if (key == DRIVE){
-			int drive_id = getCurrentDriveId();
+			drive_id = getCurrentDriveId();
 			dev_image_file = file_system_get_disk_name(drive_id);
-			dev_data_src = m_devDataSrc[drive_id-8].src_file.c_str();
+			dev_data_src = g_devDataSrc[drive_id-8].src_file.c_str();
 		}else{
 			dev_image_file = tape_get_file_name();
-			dev_data_src = m_devDataSrc[DEV_DATASETTE].src_file.c_str();
+			dev_data_src = g_devDataSrc[DEV_DATASETTE].src_file.c_str();
 		}
 
 		// Get the listbox values in settings
@@ -1173,12 +1197,20 @@ void Controller::syncSetting(int key)
 				delete[] stn_value_list;
 			}
 
+			// Clear source file paths.
+			if (key == DRIVE){
+				g_devDataSrc[drive_id-8].src_file.clear();
+				g_devDataSrc[drive_id-8].image_file.clear();
+			}else{
+				g_devDataSrc[DEV_DATASETTE].src_file.clear();
+				g_devDataSrc[DEV_DATASETTE].image_file.clear();
+			}
+
 			gs_view->onSettingChanged(key,"Empty","",0,0,15);
 			break;
 		}
 		
 		if (!strcmp(stn_value, "Empty")){
-			//PSV_DEBUG("Image is attached to device but is not showing in settings");		
 			// Image is attached to device but is not showing in settings.
 			// Get image contents and populate listbox.
 			getImageFileContents(key, dev_image_file, &stn_value_list, &stn_list_size);
@@ -1187,11 +1219,9 @@ void Controller::syncSetting(int key)
 			}
 		}
 		else{
-			//PSV_DEBUG("Device has attachement and something is showing in settings");
 			// Device has attachement and something is showing in settings.
 			// Do nothing if image is current.
 			if (!strcmp(stn_data_src, dev_data_src)){
-				//PSV_DEBUG("Image is current, do nothing.");
 				return;
 			}
 			// New image attached. First deallocate old list values.
@@ -1209,22 +1239,24 @@ void Controller::syncSetting(int key)
 			}	
 		}
 		break;
+	}
 	case DRIVE_STATUS:
 		{
+		// Update status of the currently displayed drive in Devices menu.
 		int drive_type;
 		int drive_id = getCurrentDriveId();
-		
 		if (resources_get_int_sprintf("Drive%dType", &drive_type, drive_id) < 0){
 			return;
 		}
-
-		string str_val;
-		if (drive_type == DRIVE_TYPE_NONE)
-			str_val = "Not active";
-		else
-			str_val = "Active";
-
+		string str_val = (drive_type == DRIVE_TYPE_NONE)? "Not active": "Active";
 		gs_view->onSettingChanged(key, str_val.c_str(),0,0,0,1);
+
+		// Update statusbar. Check all drives.
+		for (int i=8; i<12; ++i){
+			if (resources_get_int_sprintf("Drive%dType", &drive_type, i) < 0)
+				continue;
+			gs_view->setDriveStatus(i-8, drive_type);
+		}
 		break;
 		}
 	case DRIVE_TRUE_EMULATION:
@@ -1261,12 +1293,12 @@ void Controller::syncSetting(int key)
 		}
 	case CARTRIDGE:
 		dev_image_file = cartridge_get_file_name(cart_getid_slotmain());
-		dev_data_src = m_devDataSrc[DEV_CARTRIDGE].src_file.c_str();
+		dev_data_src = g_devDataSrc[DEV_CARTRIDGE].src_file.c_str();
 		if (dev_image_file){
 			gs_view->onSettingChanged(key, getFileNameFromPath(dev_image_file).c_str(),dev_data_src,0,0,3);
 		}else{
-			m_devDataSrc[DEV_CARTRIDGE].src_file.clear();
-			m_devDataSrc[DEV_CARTRIDGE].image_file.clear();
+			g_devDataSrc[DEV_CARTRIDGE].src_file.clear();
+			g_devDataSrc[DEV_CARTRIDGE].image_file.clear();
 			gs_view->onSettingChanged(key, "Empty","",0,0,3);
 		}
 		break;
@@ -1407,7 +1439,6 @@ void Controller::syncSetting(int key)
 
 void Controller::syncPeripherals()
 {
-	//PSV_DEBUG("Controller::syncPeripherals()");
 	syncSetting(DRIVE);
 	syncSetting(DRIVE_STATUS);
 	syncSetting(DRIVE_TRUE_EMULATION);
@@ -1420,13 +1451,13 @@ void Controller::syncPeripherals()
 void Controller::syncModelSettings()
 {
 	syncSetting(VICII_MODEL);
-	syncSetting(DRIVE_SOUND_EMULATION);
 	syncSetting(SID_ENGINE);
 	syncSetting(SID_MODEL);
 	syncSetting(COLOR_PALETTE);
 	syncSetting(JOYSTICK_PORT);
 	syncSetting(CPU_SPEED);
 	syncSetting(SOUND);
+	syncSetting(DRIVE_STATUS);
 	syncSetting(DRIVE_TRUE_EMULATION);
 	syncSetting(DRIVE_SOUND_EMULATION);
 	syncSetting(CARTRIDGE_RESET);
@@ -1454,6 +1485,30 @@ string Controller::getFileNameFromPath(const char* fpath)
 	size_t colon_pos = fname.find_last_of(":");
 	if (colon_pos != string::npos){
 		return fname.substr(colon_pos+1, string::npos);
+	}
+
+	return fname;
+}
+
+string Controller::getFileNameNoExt(const char* fpath)
+{
+	string fname = fpath;
+	
+	// Remove path.
+	size_t slash_pos = fname.find_last_of("/");
+	if (slash_pos != string::npos){
+		fname = fname.substr(slash_pos+1, string::npos);
+	}else{
+		size_t colon_pos = fname.find_last_of(":");
+		if (colon_pos != string::npos){
+			fname = fname.substr(colon_pos+1, string::npos);
+		}
+	}
+
+	// Remove extension.
+	size_t comma_pos = fname.find_last_of(".");
+	if (comma_pos != string::npos){
+		fname = fname.substr(0, comma_pos);
 	}
 
 	return fname;
@@ -1546,11 +1601,14 @@ void Controller::setCartControl(int action)
 	}
 }
 
-void Controller::getViewport(ViewPort* vp, bool borders)
+int Controller::getViewport(ViewPort* vp, bool borders)
 {
 	struct video_canvas_s* canvas;
 
 	video_psv_get_canvas(&canvas);
+
+	if (!canvas)
+		return -1;
 
 	if (borders){
 		vp->width = canvas->draw_buffer->canvas_width;
@@ -1564,9 +1622,11 @@ void Controller::getViewport(ViewPort* vp, bool borders)
 		vp->x = canvas->geometry->extra_offscreen_border_left + canvas->geometry->gfx_position.x;
 		vp->y = canvas->geometry->gfx_position.y;
 	}
+
+	return 0;
 }
 
-int Controller::attachImage(int device, const char* file, const char** curr_values, int curr_val_size)
+int Controller::attachImage(int device, const char* file)
 {
 	int drive_id = getCurrentDriveId();
 
@@ -1590,78 +1650,54 @@ int Controller::attachImage(int device, const char* file, const char** curr_valu
 		break;
 	}
 	
-	// Detach old image and deallocate list values
-	if (curr_values && curr_val_size > 0)
-		detachImage(device, curr_values, curr_val_size);
+	// Detach old image.
+	detachImage(device);
 	
-	const char** list_values = 0;
-	int list_size = 0;
-
 	switch (device){
 	case DRIVE:
-		//PSV_DEBUG("attachImage(), DRIVE");
 		if (attachDriveImage(drive_id, image_file) < 0) 
 			return -1;
-		m_devDataSrc[drive_id-8].src_file = file;
-		m_devDataSrc[drive_id-8].image_file = image_file;
-		getImageFileContents(device, image_file, &list_values, &list_size);
+		g_devDataSrc[drive_id-8].src_file = file;
+		g_devDataSrc[drive_id-8].image_file = image_file;
 		break;
 	case DATASETTE:
-		//PSV_DEBUG("attachImage(), DATASETTE");
 		if (attachTapeImage(image_file) < 0) 
 			return -1;
-		m_devDataSrc[DEV_DATASETTE].src_file = file;
-		m_devDataSrc[DEV_DATASETTE].image_file = image_file;
-		getImageFileContents(device, image_file, &list_values, &list_size);
+		g_devDataSrc[DEV_DATASETTE].src_file = file;
+		g_devDataSrc[DEV_DATASETTE].image_file = image_file;
 		break;
 	case CARTRIDGE:
-		//PSV_DEBUG("attachImage(), CARTRIDGE");
 		if (attachCartridgeImage(image_file) < 0)
 			return -1;
-		m_devDataSrc[DEV_CARTRIDGE].src_file = file;
-		m_devDataSrc[DEV_CARTRIDGE].image_file = image_file;
+		g_devDataSrc[DEV_CARTRIDGE].src_file = file;
+		g_devDataSrc[DEV_CARTRIDGE].image_file = image_file;
 		break;
 	}
-
-	string header_value = list_size? list_values[0]: getFileNameFromPath(image_file).c_str();
-	gs_view->onSettingChanged(device, header_value.c_str(), file, list_values, list_size, 15);
 
 	return 0;
 }
 
-void Controller::detachImage(int device, const char** values, int size)
+void Controller::detachImage(int device)
 {
 	switch (device){
 	case DRIVE:
 		{
 		int drive_id = getCurrentDriveId();
 		detachDriveImage(drive_id);
-		m_devDataSrc[drive_id-8].src_file.clear();
-		m_devDataSrc[drive_id-8].image_file.clear();
+		g_devDataSrc[drive_id-8].src_file.clear();
+		g_devDataSrc[drive_id-8].image_file.clear();
 		break;
 		}
 	case DATASETTE:
 		detachTapeImage();
-		m_devDataSrc[DEV_DATASETTE].src_file.clear();
-		m_devDataSrc[DEV_DATASETTE].image_file.clear();
+		g_devDataSrc[DEV_DATASETTE].src_file.clear();
+		g_devDataSrc[DEV_DATASETTE].image_file.clear();
 		break;
 	case CARTRIDGE:
 		detachCartridgeImage();
-		m_devDataSrc[DEV_CARTRIDGE].src_file.clear();
-		m_devDataSrc[DEV_CARTRIDGE].image_file.clear();
+		g_devDataSrc[DEV_CARTRIDGE].src_file.clear();
+		g_devDataSrc[DEV_CARTRIDGE].image_file.clear();
 	}
-
-	// Deallocate listbox values if any.
-	if (values && size){
-		const char** p = values;
-		for (int i=0; i<size; ++i){
-			lib_free(*p);
-			p++;
-		}
-		delete[] values;
-	}
-
-	gs_view->onSettingChanged(device,"Empty","",0,0,15);
 }
 
 static void toggleJoystickPorts()
@@ -1742,18 +1778,15 @@ static void	checkPendingActions()
 		
 		switch (ret){
 		case 0: // Printed on screen
-			//PSV_DEBUG("PRESS PLAY ON TAPE printed on screen!"); 
 			datasette_control(DATASETTE_CONTROL_START);
 			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
 			break;
 		case 1: // Not printed on screen
-			//PSV_DEBUG("PRESS PLAY ON TAPE not printed on screen!");
 			// Tape started loading without 'PRESS PLAY ON TAPE' text.
 			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
 			break;
 		case 2: // Waiting for print
 			if (isCpuInRam()) return;
-			//PSV_DEBUG("Waiting for PRESS PLAY ON TAPE print...");
 			gs_scanScreenPressPlayTimer = 50;
 			break;
 		}
@@ -1767,11 +1800,9 @@ static void	checkPendingActions()
 			setPendingAction(CTRL_ACTION_SCANSCR_LOADING_READY);
 			break;
 		case 1:
-			//PSV_DEBUG("LOADING not printed on screen!");
 			break;
 		case 2:
 			if (isCpuInRam()) return;
-			//PSV_DEBUG("Waiting for LOADING print...");
 			gs_scanScreenLoadingTimer = 50;
 		}
 	}
@@ -1781,18 +1812,15 @@ static void	checkPendingActions()
 
 		switch (ret){
 		case 0:
-			//PSV_DEBUG("READY. printed on screen. Type RUN command...");
+			// Printed on screen. Type RUN command.
 			setPendingAction(CTRL_ACTION_KBDCMD_RUN);
 			break;
 		case 1:
-			//PSV_DEBUG("READY. not printed on screen!"); 
 			break;
 		case 2:
 			if (isCpuInRam()){ 
-				//PSV_DEBUG("Out of ROM!"); 
 				return;
 			}
-			//PSV_DEBUG("Waiting for READY print...");
 			gs_scanScreenReadyTimer = 50;
 		}
 	}

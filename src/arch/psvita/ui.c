@@ -42,6 +42,7 @@
 #include "vsync.h"
 #include "archdep.h"
 #include "resources.h"
+#include "controller.h"
 #include "debug_psv.h"
 #include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
 #include <stdio.h>
@@ -67,7 +68,6 @@ ui_jam_action_t ui_jam_dialog(const char *format, ...)
 	va_end (ap);
 
 	PSV_ShowMessage((const char*)message, 0);
-	PSV_NotifyReset();
 
 	return UI_JAM_HARD_RESET;
 }
