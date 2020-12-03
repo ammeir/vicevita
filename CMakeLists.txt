@@ -694,6 +694,7 @@ target_link_libraries(${SHORT_NAME}
   SceIofilemgr_stub
   ScePower_stub 
   ScePgf_stub
+  SceAppMgr_stub
   freetype 
   png
   z
@@ -707,14 +708,14 @@ vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} ${UNSAFE_FLAG})
 # default build target so that it will be run every time.
 add_custom_target(${PROJECT_NAME}.vpk ALL
   COMMAND ${VITASDK}/bin/vita-mksfoex -s TITLE_ID=${VITA_TITLEID} ${VITA_APP_NAME} ${PROJECT_NAME}.vpk_param.sfo
-  COMMAND ${VITASDK}/bin/vita-pack-vpk.exe -s ${PROJECT_NAME}.vpk_param.sfo -b ${PROJECT_NAME}.self
-  -a sce_sys/icon0.png=sce_sys/icon0.png
-  -a sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png
-  -a sce_sys/livearea/contents/startup.png=sce_sys/livearea/contents/startup.png
-  -a sce_sys/livearea/contents/template.xml=sce_sys/livearea/contents/template.xml
-  -a resources/C64=resources/C64
-  -a resources/DRIVES=resources/DRIVES
-  -a resources/PRINTER=resources/PRINTER ${SHORT_NAME}.vpk
+  COMMAND ${VITASDK}/bin/vita-pack-vpk -s ${PROJECT_NAME}.vpk_param.sfo -b ${PROJECT_NAME}.self
+  -a ${CMAKE_SOURCE_DIR}/sce_sys/icon0.png=sce_sys/icon0.png
+  -a ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png
+  -a ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/startup.png=sce_sys/livearea/contents/startup.png
+  -a ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/template.xml=sce_sys/livearea/contents/template.xml
+  -a ${CMAKE_SOURCE_DIR}/resources/C64=resources/C64
+  -a ${CMAKE_SOURCE_DIR}/resources/DRIVES=resources/DRIVES
+  -a ${CMAKE_SOURCE_DIR}/resources/PRINTER=resources/PRINTER ${SHORT_NAME}.vpk
   DEPENDS ${PROJECT_NAME}.self
 )
 
