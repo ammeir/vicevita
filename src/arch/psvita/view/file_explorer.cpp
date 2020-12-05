@@ -173,12 +173,13 @@ void FileExplorer::navigateDown()
 
 void FileExplorer::changeDir(const char* path)
 {
-	m_path = path;
+	if (readDirContent(path) != RET_OK)
+		return;
+
 	m_highlight = 0;
 	m_borderTop = 0;
 	m_borderBottom = MAX_ENTRIES-1;
 
-	readDirContent(path);
 	addParentDirectory();
 	sortDirContent();
 	m_scrollBar.setListSize(m_list.size(), MAX_ENTRIES);
