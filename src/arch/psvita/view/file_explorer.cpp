@@ -295,6 +295,25 @@ int FileExplorer::readDirContent(const char* path)
 
 	int fd;
 
+	std::string tmp = path;
+	if (tmp == "") {
+		DirEntry entry;
+		m_path = path;
+		m_list.clear();
+
+		entry.name = "ux0:";
+		entry.path = "ux0:";
+		entry.isFile = false;
+		m_list.push_back(entry);
+
+		entry.name = "uma0:";
+		entry.path = "uma0:";
+		entry.isFile = false;
+		m_list.push_back(entry);
+
+		return RET_OK;
+	}
+
 	if ((fd = sceIoDopen(path)) < 0) {
 		//PSV_DEBUG("sceIoDopen error: 0x%08X\n, path = %s", fd, path);
 	    return RET_DIR_OPEN_ERROR;
@@ -306,7 +325,7 @@ int FileExplorer::readDirContent(const char* path)
 	bool entries_left = true;
 
 	// add slash if needed
-	if (m_path[m_path.size()-1] != '/') 
+	if (m_path[m_path.size()-1] != '/' && m_path[m_path.size()-1] != ':')
 		m_path.append("/");
 
 	while (entries_left)
@@ -354,6 +373,13 @@ void FileExplorer::addParentDirectory()
 		entry.path = tmp;
 		entry.isFile = false;
 		m_list.push_back(entry);
+	}else{
+		if (m_path != ""){
+			entry.name = "..";
+			entry.path = "";
+			entry.isFile = false;
+			m_list.push_back(entry);
+		}
 	}
 }
 
