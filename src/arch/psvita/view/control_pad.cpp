@@ -137,6 +137,20 @@ void ControlPad::getMaps(int curr_bmask, int prev_bmask,
 				if(map = m_controls->getMappedKeyDigital(bit_slider, m_realBtnMask)){
 					map->ispress = curr_bmask & bit_slider; // Pressed or released}
 					*maps++ = map; (*size)++;
+
+					// HACK: Release ltrigger map key after shifting release. 
+					// Scenario: 
+					// 1. ltrigger is mapped to a key.
+					// 2. press ltrigger --> press triangle --> release ltrigger --> release triangle.
+					// When releasing ltrigger it actually releases the ltrigger+triangle map and the first 
+					// ltrigger map is never released. Release it here.
+					if ((bit_slider & SCE_CTRL_LTRIGGER) && !(curr_bmask & bit_slider)){ // Is ltrigger release?
+						if (map->ind != SCE_CTRL_LTRIGGER){ // Is released map index other than ltrigger (i.e a shift release)?
+							map = m_controls->getMappedKeyDigital(SCE_CTRL_LTRIGGER, 0);
+							map->ispress = false;
+							*maps++ = map; (*size)++;
+						}
+					}
 				}
 			}
 			bit_slider <<= 1;

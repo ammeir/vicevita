@@ -30,7 +30,8 @@
 using std::string;
 
 typedef struct{
-	int mid;	 // map value id
+	int mid;	 // map value
+	int ind;	 // map index
 	int iskey;	 // is keyboard key
 	int isjoystick;
 	int	istouch;

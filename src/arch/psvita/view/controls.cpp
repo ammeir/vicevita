@@ -125,6 +125,7 @@ void Controls::init(Controller* controller, Settings* settings)
 
 	for(int i=0; i<gs_entriesSize; ++i){
 		m_list.push_back(string(gs_defMapValues[i]));
+		m_mapLookup[i].ind = i;
 	}
 
 	// Update the mapping lookup table.
@@ -186,6 +187,7 @@ void Controls::doModal(const char* save_dir, const char* file_name)
 {
 	m_saveDir = save_dir;
 	changeState();
+	// Game file header name. Shrink the string to fit the screen.
 	int max_width = 890 - txtr_get_text_width(m_confFileDesc.c_str(), 22);
 	m_gameFileHeader = getDisplayFitString(file_name, max_width);
 
@@ -699,9 +701,26 @@ ControlPadMap* Controls::getMappedKeyDigital(int button, int realBtnMask)
 	switch (button)
 	{
 		case SCE_CTRL_SELECT:
+			if (!(SCE_CTRL_SELECT & realBtnMask)){ // Is release?
+				// Check is this is a shifting release or individual release.
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_SELECT].ispress)
+					ret = &m_mapLookup[LTRIGGER_SELECT];
+				else
+					ret = &m_mapLookup[SELECT];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_SELECT]: &m_mapLookup[SELECT];
 			break;
 		case SCE_CTRL_START:
+			if (!(SCE_CTRL_START & realBtnMask)){
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_START].ispress)
+					ret = &m_mapLookup[LTRIGGER_START];
+				else
+					ret = &m_mapLookup[START];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_START]: &m_mapLookup[START];
 			break;
 		case SCE_CTRL_UP:
@@ -717,24 +736,40 @@ ControlPadMap* Controls::getMappedKeyDigital(int button, int realBtnMask)
 			ret = &m_mapLookup[DPAD_LEFT];
 			break;
 		case SCE_CTRL_LTRIGGER:
-			if (SCE_CTRL_RTRIGGER & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_RTRIGGER];
-			else if (SCE_CTRL_TRIANGLE & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_TRIANGLE];
-			else if (SCE_CTRL_CIRCLE & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_CIRCLE];
-			else if (SCE_CTRL_CROSS & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_CROSS];
-			else if (SCE_CTRL_SQUARE & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_SQUARE];
-			else if (SCE_CTRL_SELECT & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_SELECT];
-			else if (SCE_CTRL_START & realBtnMask) 
-				ret = &m_mapLookup[LTRIGGER_START];
-			else
-				ret = &m_mapLookup[LTRIGGER];
+			if (!(SCE_CTRL_LTRIGGER & realBtnMask)){ // Is ltrigger release?
+				// Check if this is a shifting release.
+				if (SCE_CTRL_RTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_RTRIGGER].ispress) 
+					ret = &m_mapLookup[LTRIGGER_RTRIGGER];
+				else if (SCE_CTRL_TRIANGLE & realBtnMask && m_mapLookup[LTRIGGER_TRIANGLE].ispress) 
+					ret = &m_mapLookup[LTRIGGER_TRIANGLE];
+				else if (SCE_CTRL_CIRCLE & realBtnMask && m_mapLookup[LTRIGGER_CIRCLE].ispress) 
+					ret = &m_mapLookup[LTRIGGER_CIRCLE];
+				else if (SCE_CTRL_CROSS & realBtnMask && m_mapLookup[LTRIGGER_CROSS].ispress) 
+					ret = &m_mapLookup[LTRIGGER_CROSS];
+				else if (SCE_CTRL_SQUARE & realBtnMask && m_mapLookup[LTRIGGER_SQUARE].ispress) 
+					ret = &m_mapLookup[LTRIGGER_SQUARE];
+				else if (SCE_CTRL_SELECT & realBtnMask && m_mapLookup[LTRIGGER_SELECT].ispress) 
+					ret = &m_mapLookup[LTRIGGER_SELECT];
+				else if (SCE_CTRL_START & realBtnMask && m_mapLookup[LTRIGGER_START].ispress) 
+					ret = &m_mapLookup[LTRIGGER_START];
+				else
+					ret = &m_mapLookup[LTRIGGER];
+
+				break;
+			}
+
+			ret = &m_mapLookup[LTRIGGER];
+			
 			break;
 		case SCE_CTRL_RTRIGGER:
+			if (!(SCE_CTRL_RTRIGGER & realBtnMask)){
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_RTRIGGER].ispress)
+					ret = &m_mapLookup[LTRIGGER_RTRIGGER];
+				else
+					ret = &m_mapLookup[RTRIGGER];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_RTRIGGER]: &m_mapLookup[RTRIGGER];
 			break;
 		case SCE_CTRL_L1:
@@ -742,15 +777,47 @@ ControlPadMap* Controls::getMappedKeyDigital(int button, int realBtnMask)
 		case SCE_CTRL_R1:
 			break;
 		case SCE_CTRL_TRIANGLE:
+			if (!(SCE_CTRL_TRIANGLE & realBtnMask)){ 
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_TRIANGLE].ispress)
+					ret = &m_mapLookup[LTRIGGER_TRIANGLE];
+				else
+					ret = &m_mapLookup[TRIANGLE];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_TRIANGLE]: &m_mapLookup[TRIANGLE];
 			break;
 		case SCE_CTRL_CIRCLE:
+			if (!(SCE_CTRL_CIRCLE & realBtnMask)){
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_CIRCLE].ispress)
+					ret = &m_mapLookup[LTRIGGER_CIRCLE];
+				else
+					ret = &m_mapLookup[CIRCLE];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_CIRCLE]: &m_mapLookup[CIRCLE];
 			break;
 		case SCE_CTRL_CROSS:
+			if (!(SCE_CTRL_CROSS & realBtnMask)){
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_CROSS].ispress)
+					ret = &m_mapLookup[LTRIGGER_CROSS];
+				else
+					ret = &m_mapLookup[CROSS];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_CROSS]: &m_mapLookup[CROSS];
 			break;
 		case SCE_CTRL_SQUARE:
+			if (!(SCE_CTRL_SQUARE & realBtnMask)){
+				if (SCE_CTRL_LTRIGGER & realBtnMask && m_mapLookup[LTRIGGER_SQUARE].ispress)
+					ret = &m_mapLookup[LTRIGGER_SQUARE];
+				else
+					ret = &m_mapLookup[SQUARE];
+				
+				break;
+			}
 			ret = (SCE_CTRL_LTRIGGER & realBtnMask)? &m_mapLookup[LTRIGGER_SQUARE]: &m_mapLookup[SQUARE];
 			break;
 		case SCE_CTRL_VOLUP:
