@@ -68,6 +68,7 @@ public:
 	int					getKeyValue(const char* section, const char* key, const char* ret);
 	int					setKeyValue(const char* section, const char* key, const char* value);
 	int					addKeyToSec(const char* section, const char* key, const char* value);
+	int					addSection(const char* section);
 	bool				valuesOccupied(const char* section);
 	string				toString();
 					
@@ -89,6 +90,7 @@ public:
 	int				getKeyValue(const char* section, const char* key, const char* ret);
 	int				setKeyValue(const char* section, const char* key, const char* value);
 	int				addKeyToSec(const char* section, const char* key, const char* value);
+	int				addSection(const char* section);
 	bool			valuesOccupied(const char* section);
 	char*			readToBuf(const char* ini_file);
 	int				saveToFile(const char* ini_file);

@@ -62,6 +62,11 @@ int	IniParser::addKeyToSec(const char* section, const char* key, const char* val
 	return m_iniFile.addKeyToSec(section, key, value);
 }
 
+int IniParser::addSection(const char* section)
+{
+	return m_iniFile.addSection(section);
+}
+
 bool IniParser::valuesOccupied(const char* section)
 {
 	return m_iniFile.valuesOccupied(section);
@@ -214,10 +219,12 @@ int	IniFile::setKeyValue(const char* section, const char* key, const char* value
 					return INI_PARSER_OK;
 				}
 			}
+
+			return INI_PARSER_KEY_NOT_FOUND;
 		}
 	}
 
-	return INI_PARSER_KEY_NOT_FOUND;
+	return INI_PARSER_SECTION_NOT_FOUND;
 }
 
 int	IniFile::addKeyToSec(const char* section, const char* key, const char* value)
@@ -241,8 +248,23 @@ int	IniFile::addKeyToSec(const char* section, const char* key, const char* value
 	return INI_PARSER_SECTION_NOT_FOUND;
 }
 
+int IniFile::addSection(const char* section)
+{
+	if (!section)
+		return INI_PARSER_ERROR;
+
+	Section sec;
+	sec.name = section;
+	m_sections.push_back(sec);
+
+	return INI_PARSER_OK;
+}
+
 bool IniFile::valuesOccupied(const char* section)
 {
+	if (! section)
+		return false;
+
 	for(vector<Section>::iterator it=m_sections.begin(); it!=m_sections.end(); ++it){
 
 		if (!(*it).name.compare(section)){
