@@ -57,6 +57,7 @@ const char* Extractor::extract(const char* archive_file, int drive)
 	const char* game_path = archive_file;
 	char* file_buffer = NULL;
 	unzFile zipfile = NULL;
+
 	
 	if (isFileOfType(archive_file, "ZIP")){
 		
@@ -174,6 +175,10 @@ const char* Extractor::extract(const char* archive_file, int drive)
 			m_trackData[dev_ind].archive_file = archive_file;
 		}
 		
+		
+		if (m_trackData[dev_ind].files.empty())
+			return NULL;
+
 		// Return the first extracted file.
 		game_path = m_trackData[dev_ind].files.front().c_str();
 	}
@@ -198,6 +203,9 @@ error:
 
 bool Extractor::isFileOfType(const char* fname, const char* type)
 {
+	if (!fname || !type)
+		return false;
+
 	string extension;
 	string file = fname;
 
