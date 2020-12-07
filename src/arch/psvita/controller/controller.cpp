@@ -354,8 +354,6 @@ int Controller::loadFile(int load_type, const char* file, int index)
 		if (!file)
 			return -1;
 
-		gtShowMsgBoxNoBtn("Loading...");
-
 		const char* image_file = Extractor::getInst()->extract(file);
 
 		if (!image_file){
@@ -365,7 +363,7 @@ int Controller::loadFile(int load_type, const char* file, int index)
 		int image_type = getImageType(image_file);
 
 		// Remove any attached cartridge or it will be loaded instead.
-		cartridge_detach_image(-1);
+		detachImage(CARTRIDGE);
 		
 		// Taps can cause issues when saving disk/cart games. 
 		if (isTapOnTape()){

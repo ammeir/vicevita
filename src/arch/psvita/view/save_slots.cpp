@@ -159,12 +159,12 @@ void SaveSlots::buttonReleased(int button)
 			break;
 		case SCE_CTRL_CROSS: // Load
 			if (isSlotOccupied(m_highlightSlot)){
-				gtShowMsgBoxNoBtn("Loading...");
+				gtShowMsgBoxNoBtn("Loading...", this);
 				sceKernelDelayThread(350000); // Just for the looks
 				string snapshot = getfilePath(m_highlightSlot);
 				
 				if (m_controller->loadState(snapshot.c_str()) < 0){
-					gtShowMsgBoxOk("Load failed");
+					gtShowMsgBoxOk("Load failed", this);
 					show();
 					return;
 				}
@@ -212,7 +212,7 @@ void SaveSlots::buttonReleased(int button)
 			
 			// Save snaphot and patch it with thumbnail and settings.
 			if (m_controller->saveState(snap_file.c_str()) < 0){
-				gtShowMsgBoxOk("Save failed");
+				gtShowMsgBoxOk("Save failed", this);
 				show();
 				break;
 			}

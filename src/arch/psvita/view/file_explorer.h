@@ -52,7 +52,7 @@ struct DirEntry
 };
 
 class vita2d_texture;
-class FileExplorer : public Navigator, IRenderable
+class FileExplorer : public Navigator, public IRenderable
 {
 
 private:
