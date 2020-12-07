@@ -48,6 +48,7 @@ typedef enum {
 extern dev_data_s g_devDataSrc[6];
 
 class Controller;
+class FileExplorer;
 class vita2d_texture;
 class Peripherals : public Navigator, IRenderable
 {
@@ -55,6 +56,7 @@ class Peripherals : public Navigator, IRenderable
 private:
 	View*					m_view;
 	Controller*				m_controller;
+	FileExplorer*			m_fileExp;
 	int						m_highlight;
 	int						m_borderTop;
 	int						m_borderBottom;
@@ -95,6 +97,8 @@ private:
 	int						getKeyIndex(int key);
 	int						getValueIndex(const char* value, const char** values, int size);
 	int						getDriveId();
+	void					saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value);
+	string					getLastBrowserDir();
 
 
 public:

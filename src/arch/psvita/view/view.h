@@ -57,6 +57,7 @@ class Controls;
 class Settings;
 class About;
 class Statusbar;
+class FileExplorer;
 class vita2d_texture;
 class IRenderable;
 struct FileInfo;
@@ -75,6 +76,7 @@ private:
 	VirtualKeyboard* m_keyboard;
 	About*			m_about;
 	Statusbar*		m_statusbar;
+	FileExplorer*	m_fileExp;
 	
 	AspectRatio		m_aspectRatio;
 	TextureFilter	m_textureFilter;
@@ -137,6 +139,8 @@ private:
 	void			updateControls();
 	void			updateSettings();
 	void			cleanTmpDir();
+	void			saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value);
+	string			getLastBrowserDir();
 	void			printTestRect();
 
 

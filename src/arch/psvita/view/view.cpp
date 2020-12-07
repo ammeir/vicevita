@@ -31,6 +31,7 @@
 #include "about.h"
 #include "statusbar.h"
 #include "vkeyboard.h"
+#include "ini_parser.h"
 #include "texter.h"
 #include "guitools.h"
 #include "iRenderable.h"
@@ -70,6 +71,7 @@ View::View()
 	m_statusbar			= NULL;
 	m_keyboard			= NULL;
 	m_view_tex			= NULL;
+	m_fileExp			= NULL;
 	m_posXNormalView	= 0;
 	m_posYNormalView	= 0;
 	m_scaleXNormalView  = 1;
@@ -101,6 +103,8 @@ View::~View()
 		delete m_statusbar;
 	if (m_keyboard)
 		delete m_keyboard;
+	if (m_fileExp)
+		delete m_fileExp;
 	if (m_view_tex)
 		vita2d_free_texture(m_view_tex);
 
@@ -125,6 +129,7 @@ void View::init(Controller* controller)
 	m_about			= new About();
 	m_statusbar		= new Statusbar();
 	m_keyboard		= new VirtualKeyboard;
+	m_fileExp		= new FileExplorer;
 
 	createAppDirs();
 	createDefConfFile();
@@ -144,6 +149,27 @@ void View::init(Controller* controller)
 	m_keyboardOnView = false;
 
 	loadResources();
+
+	// Get last saved browser dir.
+	string last_dir = getLastBrowserDir();
+	if (last_dir.empty() || !m_fileExp->dirExist(last_dir.c_str()))
+		last_dir = GAME_DIR;
+
+	// Browser file filter.
+	const char* filter[] = {
+	   "CRT",														// Cartridge image
+       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
+       "T64","TAP",													// Tape image
+	   "PRG","P00",													// Program image
+	   "ZIP",														// Archive file
+	   NULL};
+
+	m_fileExp->init(last_dir.c_str(),0,0,0,filter);
+
+	// This is silly but it helps performance.
+	// First time saving to ini file is considerably slower than subsequent save. We might as well do it 
+	// here so user won't feel any slowdowns.
+	saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, last_dir.c_str());
 }
 
 void View::doModal()
@@ -443,8 +469,6 @@ string	View::getGameSaveDirPath()
 
 void View::createAppDirs()
 {
-	FileExplorer fileExp;
-
 	string dirs[9];
 	dirs[0] = APP_DATA_DIR;
 	dirs[1] = GAME_DIR;
@@ -457,8 +481,8 @@ void View::createAppDirs()
 	dirs[8] = TMP_DRV11_DIR;
 
 	for (int i=0; i<9; ++i){
-		if (!fileExp.dirExist(dirs[i].c_str()))
-			fileExp.makeDir(dirs[i].c_str());
+		if (!m_fileExp->dirExist(dirs[i].c_str()))
+			m_fileExp->makeDir(dirs[i].c_str());
 	}
 }
 
@@ -490,40 +514,24 @@ string View::showMainMenu()
 
 void View::showStartGame()
 {
-	// Remember last visit folder and navigation spot
-	static string last_game_dir = GAME_DIR;
-	static int last_highlight_index = 0;
-	static int last_bordertop_index = 0;
-	static float last_scrollbar_ypos = 0;
-	
-	//static int filter_list_size = 14;
-	static const char* filter[] = {
-	   "CRT",														// Cartridge image
-       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
-       "T64","TAP",													// Tape image
-	   "PRG","P00",													// Program image
-	   "ZIP",														// Archive file
-	   NULL};														
-
-	FileExplorer fileExp;
-	fileExp.init(last_game_dir.c_str(), 
-				last_highlight_index, 
-				last_bordertop_index, 
-				last_scrollbar_ypos,
-				filter);
-	
+	string entry_dir = m_fileExp->getDir();
 	string selection;
 	int ret;
 	
 	do{
-		selection = fileExp.doModal();
+		selection = m_fileExp->doModal();
 		if (selection.empty()) 
 			break;
+		gtShowMsgBoxNoBtn("Loading...", m_fileExp);
 		ret = m_peripherals->loadImage(CTRL_AUTO_DETECT_LOAD, selection.c_str());
 		if (ret < 0)
-			gtShowMsgBoxOk("Could not start image");
+			gtShowMsgBoxOk("Could not start image", m_fileExp);
 	}
 	while(ret);
+
+	// Save directory if it has changed.
+	if (m_fileExp->getDir() != entry_dir)
+		saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, m_fileExp->getDir().c_str());
 
 	if (!selection.empty()){
 		updateControls();
@@ -531,11 +539,6 @@ void View::showStartGame()
 		m_inGame = true;
 		m_uiActive = false;
 	}
-
-	last_game_dir = fileExp.getDir();
-	last_highlight_index = fileExp.getHighlightIndex();
-	last_bordertop_index = fileExp.getBorderTopIndex();
-	last_scrollbar_ypos = fileExp.getScrollBarPosY();
 }
 
 void View::showSaveSlots()
@@ -936,42 +939,83 @@ string View::getFileNameNoExt(const char* fpath)
 
 void View::cleanTmpDir()
 {
-	FileExplorer fileExp;
+	m_fileExp->readDirContent(TMP_DIR);
+	vector<DirEntry> dir_content = m_fileExp->getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		m_fileExp->deleteFile((*it).path.c_str());
+	}
+
+	m_fileExp->readDirContent(TMP_DRV8_DIR);
+	dir_content = m_fileExp->getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		m_fileExp->deleteFile((*it).path.c_str());
+	}
+
+	m_fileExp->readDirContent(TMP_DRV9_DIR);
+	dir_content = m_fileExp->getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		m_fileExp->deleteFile((*it).path.c_str());
+	}
+
+	m_fileExp->readDirContent(TMP_DRV10_DIR);
+	dir_content = m_fileExp->getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		m_fileExp->deleteFile((*it).path.c_str());
+	}
+
+	m_fileExp->readDirContent(TMP_DRV11_DIR);
+	dir_content = m_fileExp->getDirContent();
+
+	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
+		m_fileExp->deleteFile((*it).path.c_str());
+	}
+}
+
+void View::saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value)
+{
+	//DEBUG("View::saveValueToIni()");
+	IniParser ini_parser;
+
+	if (!ini_file || !section || !key || !value)
+		return;
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
+
+	int ret;
 	
-	fileExp.readDirContent(TMP_DIR);
-	vector<DirEntry> dir_content = fileExp.getDirContent();
+	do{
+		ret = ini_parser.setKeyValue(section, key, value);
+		if (ret == INI_PARSER_SECTION_NOT_FOUND){
+			ini_parser.addSection(section);
+		}
+		else if (ret == INI_PARSER_KEY_NOT_FOUND){
+			ini_parser.addKeyToSec(section, key, value);
+		}
 
-	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		fileExp.deleteFile((*it).path.c_str());
+	}while (ret != INI_PARSER_OK);
+
+	ini_parser.saveToFile(ini_file);
+}
+
+string	View::getLastBrowserDir()
+{
+	// Get last saved directory.
+
+	IniParser ini_parser;
+	int ret = INI_PARSER_OK;
+	char key_value[128] = {0};
+
+	
+	if ((ret = ini_parser.init(DEF_CONF_FILE_PATH)) == INI_PARSER_OK){
+		ret = ini_parser.getKeyValue(INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, key_value);
 	}
 
-	fileExp.readDirContent(TMP_DRV8_DIR);
-	dir_content = fileExp.getDirContent();
-
-	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		fileExp.deleteFile((*it).path.c_str());
-	}
-
-	fileExp.readDirContent(TMP_DRV9_DIR);
-	dir_content = fileExp.getDirContent();
-
-	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		fileExp.deleteFile((*it).path.c_str());
-	}
-
-	fileExp.readDirContent(TMP_DRV10_DIR);
-	dir_content = fileExp.getDirContent();
-
-	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		fileExp.deleteFile((*it).path.c_str());
-	}
-
-	fileExp.readDirContent(TMP_DRV11_DIR);
-	dir_content = fileExp.getDirContent();
-
-	for (vector<DirEntry>::iterator it = dir_content.begin(); it != dir_content.end(); ++it){
-		fileExp.deleteFile((*it).path.c_str());
-	}
+	return key_value;
 }
 
 void View::loadResources()

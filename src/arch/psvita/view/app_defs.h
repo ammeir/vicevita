@@ -26,7 +26,9 @@
 #define INI_FILE_SEC_CONTROLS				"Controls"
 #define INI_FILE_SEC_SETTINGS				"Settings"
 #define INI_FILE_SEC_PERIPHERALS			"Peripherals"
+#define INI_FILE_SEC_FILE_BROWSER			"Browser"
 #define INI_FILE_KEY_KEYMAPS				"Keymaps"
+#define INI_FILE_KEY_LASTDIR                "LastDir"
 
 // VICE resource strings
 #define VICE_RES_CARTRIDGE_RESET			"CartridgeReset"
@@ -146,6 +148,7 @@
 #define IMG_BTN_CROSS_BLUE					13
 #define IMG_BTN_SQUARE_BLUE					14
 #define IMG_BTN_TRIANGLE_BLUE				15
+
 
 #define BLACK								RGBA8(0, 0, 0, 255)
 #define GREY								RGBA8(128, 128, 128, 255)

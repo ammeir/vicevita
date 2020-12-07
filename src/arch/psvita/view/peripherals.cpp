@@ -96,22 +96,43 @@ static PeripheralEntry	gs_list[] =
 
 Peripherals::Peripherals()
 {
+	m_fileExp = NULL;
+
 }
 
 Peripherals::~Peripherals()
 {
+	if (m_fileExp)
+		delete m_fileExp;
 }
 
 void Peripherals::init(View* view, Controller* controller)
 {
 	m_view = view;
 	m_controller = controller;
+	m_fileExp = new FileExplorer;
 	m_highlight = 1;
 	m_borderTop = 0;
 	m_borderBottom = MAX_ENTRIES-1;
 	m_posXValue = 280;
 	m_maxValueWidth = 850 - m_posXValue;
 	m_selectingValue = false;
+
+	// Get last saved browser dir.
+	string last_dir = getLastBrowserDir();
+	if (last_dir.empty() || !m_fileExp->dirExist(last_dir.c_str()))
+		last_dir = GAME_DIR;
+
+	// Browser file filter.
+	const char* filter[] = {
+	   "CRT",														// Cartridge image
+       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
+       "T64","TAP",													// Tape image
+	   "PRG","P00",													// Program image
+	   "ZIP",														// Archive file
+	   NULL};
+
+	m_fileExp->init(last_dir.c_str(),0,0,0,filter);
 
 	// Set function pointers for the handlers
 	for (int i=0; i<gs_peripheralEntriesSize; i++){
@@ -178,7 +199,7 @@ void Peripherals::buttonReleased(int button)
 			string file = showFileBrowser(gs_list[m_highlight].id);
 			
 			if (!file.empty()){
-				gtShowMsgBoxNoBtn("Attaching...");
+				gtShowMsgBoxNoBtn("Attaching...", this);
 				attachImage(gs_list[m_highlight].id, file.c_str());
 			}
 
@@ -208,7 +229,7 @@ void Peripherals::buttonReleased(int button)
 			}
 
 			if (ret < 0){
-				gtShowMsgBoxOk("Failed to load image!");
+				gtShowMsgBoxOk("Failed to load image!", this);
 				show();
 				break;
 			}
@@ -543,33 +564,12 @@ string Peripherals::showValuesListBox(const char** values, int size)
 
 string Peripherals::showFileBrowser(int peripheral)
 {
-	// Remember last visited folder and navigation spot.
-	static string last_game_dir = GAME_DIR;
-	static int last_highlight_index = 0;
-	static int last_bordertop_index = 0;
-	static float last_scrollbar_ypos = 0;
+	string entry_dir = m_fileExp->getDir();
+	string selection = m_fileExp->doModal();
 
-	static const char* filter[] = {
-	   "CRT",														// Cartridge image
-       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
-       "T64","TAP",													// Tape image
-	   "PRG","P00",													// Program image
-	   "ZIP",														// Archive file
-	   NULL};					
-
-	FileExplorer fileExp;
-	fileExp.init(last_game_dir.c_str(), 
-				last_highlight_index, 
-				last_bordertop_index, 
-				last_scrollbar_ypos,
-				filter);
-
-	string selection = fileExp.doModal();
-	
-	last_game_dir = fileExp.getDir();
-	last_highlight_index = fileExp.getHighlightIndex();
-	last_bordertop_index = fileExp.getBorderTopIndex();
-	last_scrollbar_ypos = fileExp.getScrollBarPosY();
+	// Save directory if it has changed.
+	if (m_fileExp->getDir() != entry_dir)
+		saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, m_fileExp->getDir().c_str());
 
 	return selection;
 }
@@ -865,5 +865,48 @@ int Peripherals::getDriveId()
 	}
 
 	return ret;
+}
+
+void Peripherals::saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value)
+{
+	//DEBUG("Peripherals::saveValueToIni()");
+	IniParser ini_parser;
+
+	if (!ini_file || !section || !key || !value)
+		return;
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return;
+
+	int ret;
+	
+	do{
+		ret = ini_parser.setKeyValue(section, key, value);
+		if (ret == INI_PARSER_SECTION_NOT_FOUND){
+			ini_parser.addSection(section);
+		}
+		else if (ret == INI_PARSER_KEY_NOT_FOUND){
+			ini_parser.addKeyToSec(section, key, value);
+		}
+
+	}while (ret != INI_PARSER_OK);
+
+	ini_parser.saveToFile(ini_file);
+}
+
+string	Peripherals::getLastBrowserDir()
+{
+	// Get last saved directory.
+
+	IniParser ini_parser;
+	int ret = INI_PARSER_OK;
+	char key_value[128] = {0};
+
+	
+	if ((ret = ini_parser.init(DEF_CONF_FILE_PATH)) == INI_PARSER_OK){
+		ret = ini_parser.getKeyValue(INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, key_value);
+	}
+
+	return key_value;
 }
 
