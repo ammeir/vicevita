@@ -267,6 +267,9 @@ void Statusbar::setDriveTrack(unsigned int drive, unsigned int half_track)
 
 void Statusbar::setDriveDiskPresence(int drive, int disk_in)
 {
+	if (drive > 3)
+		return;
+
 	m_driveDiskMask = disk_in? m_driveDiskMask | m_drives[drive].bitmask: 
 								m_driveDiskMask & ~m_drives[drive].bitmask;
 
