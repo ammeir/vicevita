@@ -108,6 +108,64 @@ string IniParser::toString()
 	return m_iniFile.toString();
 }
 
+int IniParser::getValueFromIni(const char* ini_file, const char* section, const char* key, const char** ret_value)
+{
+	// This is static function and is meant to be called without a class instance.
+	// Caller must deallocate return value.
+
+	IniParser ini_parser;
+	int ret;
+	char key_value[256] = {0};
+
+	if ((ret = ini_parser.init(ini_file)) == INI_PARSER_OK){
+		if ((ret = ini_parser.getKeyValue(section, key, key_value)) == INI_PARSER_OK){
+			int value_size = strlen(key_value);
+			*ret_value = new char[value_size + 1];
+			strcpy((char*)*ret_value, key_value);
+		}
+	}
+
+	return ret;
+}
+
+int IniParser::setValueToIni(const char* ini_file, const char* section, const char* key, const char* value, bool create)
+{
+	// This is static function and is meant to be called without a class instance.
+
+	IniParser ini_parser;
+
+	if (!ini_file || !section || !key || !value)
+		return INI_PARSER_ERROR;
+
+	if (ini_parser.init(ini_file) != INI_PARSER_OK)
+		return INI_PARSER_ERROR;
+
+	int ret;
+	
+	do{
+		ret = ini_parser.setKeyValue(section, key, value);
+
+		if (ret == INI_PARSER_OK)
+			break;
+
+		if (!create)
+			break;
+			
+		if (ret == INI_PARSER_SECTION_NOT_FOUND){
+			ini_parser.addSection(section);
+		}
+		else if (ret == INI_PARSER_KEY_NOT_FOUND){
+			ini_parser.addKeyToSec(section, key, value);
+		}
+
+	}while (ret != INI_PARSER_OK);
+
+	if (ret == INI_PARSER_OK)
+		ret = ini_parser.saveToFile(ini_file);
+
+	return ret;
+}
+
 IniFile::IniFile()
 {
 

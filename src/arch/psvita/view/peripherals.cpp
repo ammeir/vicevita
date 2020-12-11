@@ -118,10 +118,7 @@ void Peripherals::init(View* view, Controller* controller)
 	m_maxValueWidth = 850 - m_posXValue;
 	m_selectingValue = false;
 
-	// Get last saved browser dir.
 	string last_dir = getLastBrowserDir();
-	if (last_dir.empty() || !m_fileExp->dirExist(last_dir.c_str()))
-		last_dir = GAME_DIR;
 
 	// Browser file filter.
 	const char* filter[] = {
@@ -566,10 +563,11 @@ string Peripherals::showFileBrowser(int peripheral)
 {
 	string entry_dir = m_fileExp->getDir();
 	string selection = m_fileExp->doModal();
+	string exit_dir = m_fileExp->getDir();
 
 	// Save directory if it has changed.
-	if (m_fileExp->getDir() != entry_dir)
-		saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, m_fileExp->getDir().c_str());
+	if (exit_dir != entry_dir)
+		IniParser::setValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, exit_dir.c_str());
 
 	return selection;
 }
@@ -867,46 +865,19 @@ int Peripherals::getDriveId()
 	return ret;
 }
 
-void Peripherals::saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value)
+string Peripherals::getLastBrowserDir()
 {
-	//DEBUG("Peripherals::saveValueToIni()");
-	IniParser ini_parser;
+	// Get last saved directory. If not found use default game directory.
+	string ret = GAME_DIR;
+	const char* key_value = NULL;
 
-	if (!ini_file || !section || !key || !value)
-		return;
-
-	if (ini_parser.init(ini_file) != INI_PARSER_OK)
-		return;
-
-	int ret;
+	int err_code = IniParser::getValueFromIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, &key_value);
 	
-	do{
-		ret = ini_parser.setKeyValue(section, key, value);
-		if (ret == INI_PARSER_SECTION_NOT_FOUND){
-			ini_parser.addSection(section);
-		}
-		else if (ret == INI_PARSER_KEY_NOT_FOUND){
-			ini_parser.addKeyToSec(section, key, value);
-		}
-
-	}while (ret != INI_PARSER_OK);
-
-	ini_parser.saveToFile(ini_file);
-}
-
-string	Peripherals::getLastBrowserDir()
-{
-	// Get last saved directory.
-
-	IniParser ini_parser;
-	int ret = INI_PARSER_OK;
-	char key_value[128] = {0};
-
-	
-	if ((ret = ini_parser.init(DEF_CONF_FILE_PATH)) == INI_PARSER_OK){
-		ret = ini_parser.getKeyValue(INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, key_value);
+	if (err_code == INI_PARSER_OK && key_value && m_fileExp->dirExist(key_value)){
+		ret = key_value;
+		delete[] key_value;
 	}
 
-	return key_value;
+	return ret;
 }
 

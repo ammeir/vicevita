@@ -139,7 +139,6 @@ private:
 	void			updateControls();
 	void			updateSettings();
 	void			cleanTmpDir();
-	void			saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value);
 	string			getLastBrowserDir();
 	void			printTestRect();
 

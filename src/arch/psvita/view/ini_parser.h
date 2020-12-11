@@ -94,8 +94,12 @@ public:
 	bool			valuesOccupied(const char* section);
 	char*			readToBuf(const char* ini_file);
 	int				saveToFile(const char* ini_file);
-
 	string			toString();
+
+	// Convenience functions that can be used without the need to create a class instance.
+	static int		getValueFromIni(const char* ini_file, const char* section, const char* key, const char** ret);
+	static int		setValueToIni(const char* ini_file, const char* section, const char* key, const char* value, bool create = false);
+	
 };
 
 #endif

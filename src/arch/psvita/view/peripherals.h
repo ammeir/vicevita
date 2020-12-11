@@ -97,7 +97,6 @@ private:
 	int						getKeyIndex(int key);
 	int						getValueIndex(const char* value, const char** values, int size);
 	int						getDriveId();
-	void					saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value);
 	string					getLastBrowserDir();
 
 
