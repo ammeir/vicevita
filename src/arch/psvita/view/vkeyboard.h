@@ -38,7 +38,12 @@ typedef struct{
 	int height;
 }RectCoordinates;
 
+#define KEYBOARD_UP			 0x01
+#define KEYBOARD_DOWN		 0x02
+#define KEYBOARD_MOVING_UP	 0x04
+#define KEYBOARD_MOVING_DOWN 0x08
 
+extern int  g_keyboardStatus;
 
 class View;
 class Controls;
@@ -61,11 +66,13 @@ private:
 	vita2d_texture*		m_keyboardCtrl;
 	bool				m_shiftLock;
 	bool				m_updated;
+	bool				m_animation;
 
 	void				changeLayout(int mid);
 	int					touchCoordinatesToMid(int x, int y);
 	void				midToKeyboardCoordinates(int mid, RectCoordinates* tc);
 	void				showMagnifiedKey(int mid);
+	void				initAnimation();
 
 public:
 						VirtualKeyboard();
@@ -79,6 +86,8 @@ public:
 	void				setPosition(int x, int y, float scaleX, float scaleY);
 	void				clear();
 	bool				isUpdated();
+	void				setAnimation(bool);
+	void				toggleVisibility();
 };
 
 #endif

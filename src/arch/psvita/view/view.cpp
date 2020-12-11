@@ -146,14 +146,10 @@ void View::init(Controller* controller)
 	m_statusbar->init(this);
 	m_controlPad->init(this, m_controls, m_keyboard);
 	m_keyboard->init(this, m_controls);
-	m_keyboardOnView = false;
 
 	loadResources();
 
-	// Get last saved browser dir.
 	string last_dir = getLastBrowserDir();
-	if (last_dir.empty() || !m_fileExp->dirExist(last_dir.c_str()))
-		last_dir = GAME_DIR;
 
 	// Browser file filter.
 	const char* filter[] = {
@@ -169,7 +165,7 @@ void View::init(Controller* controller)
 	// This is silly but it helps performance.
 	// First time saving to ini file is considerably slower than subsequent save. We might as well do it 
 	// here so user won't feel any slowdowns.
-	saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, last_dir.c_str());
+	IniParser::setValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, last_dir.c_str(), true);
 }
 
 void View::doModal()
@@ -265,9 +261,8 @@ void View::updateView()
 	vita2d_start_drawing();
 	vita2d_clear_screen();
 
-	if (!m_keyboardOnView){ 
+	if (g_keyboardStatus == KEYBOARD_DOWN){ 
 		// Normal view.
-
 		vita2d_draw_texture_part_scale(
 			m_view_tex, 
 			m_posXNormalView, 
@@ -279,12 +274,12 @@ void View::updateView()
 			m_scaleXNormalView, 
 			m_scaleYNormalView);
 	}
-	else{
-		// Split screen or full screen
+	else if (g_keyboardStatus == KEYBOARD_UP){
+		// Split screen or full screen.
 		if (g_keyboardMode != KEYBOARD_FULL_SCREEN){
 			static ViewPort vp;
 			
-			// Get borderless view for bigger screen.
+			// Draw borderless view for bigger screen.
 			if (m_controller->getViewport(&vp, false) == 0){
 				vita2d_draw_texture_part_scale(
 					m_view_tex, 
@@ -301,8 +296,22 @@ void View::updateView()
 
 		m_keyboard->render();
 	}
+	else{
+		// Keyboard animating up/down.
+		vita2d_draw_texture_part_scale(
+			m_view_tex, 
+			m_posXNormalView, 
+			m_posYNormalView, 
+			m_viewport.x, 
+			m_viewport.y, 
+			m_viewport.width, 
+			m_viewport.height, 
+			m_scaleXNormalView, 
+			m_scaleYNormalView);
 
-	
+		m_keyboard->render();
+	}
+
 	if (m_showStatusbar){
 		m_statusbar->render();
 	}
@@ -438,7 +447,7 @@ void View::toggleStatusbarOnView()
 
 void View::toggleKeyboardOnView()
 {
-	m_keyboardOnView = !m_keyboardOnView;
+	m_keyboard->toggleVisibility();
 	m_keyboard->clear();
 }
 
@@ -493,7 +502,7 @@ void View::createDefConfFile()
 
 bool View::isKeyboardOnView()
 {
-	return m_keyboardOnView;
+	return g_keyboardStatus == KEYBOARD_UP;
 }
 
 bool View::isBorderlessView()
@@ -503,7 +512,7 @@ bool View::isBorderlessView()
 
 void View::scanControls(ControlPadMap** maps, int* size, bool scan_mouse)
 {
-	m_controlPad->scan(maps, size, m_keyboardOnView, scan_mouse);
+	m_controlPad->scan(maps, size, g_keyboardStatus == KEYBOARD_UP, scan_mouse);
 }
 
 string View::showMainMenu()
@@ -529,9 +538,11 @@ void View::showStartGame()
 	}
 	while(ret);
 
+	string exit_dir = m_fileExp->getDir();
+
 	// Save directory if it has changed.
-	if (m_fileExp->getDir() != entry_dir)
-		saveValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, m_fileExp->getDir().c_str());
+	if (exit_dir != entry_dir)
+		IniParser::setValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, exit_dir.c_str());
 
 	if (!selection.empty()){
 		updateControls();
@@ -975,47 +986,20 @@ void View::cleanTmpDir()
 	}
 }
 
-void View::saveValueToIni(const char* ini_file, const char* section, const char* key, const char* value)
-{
-	//DEBUG("View::saveValueToIni()");
-	IniParser ini_parser;
-
-	if (!ini_file || !section || !key || !value)
-		return;
-
-	if (ini_parser.init(ini_file) != INI_PARSER_OK)
-		return;
-
-	int ret;
-	
-	do{
-		ret = ini_parser.setKeyValue(section, key, value);
-		if (ret == INI_PARSER_SECTION_NOT_FOUND){
-			ini_parser.addSection(section);
-		}
-		else if (ret == INI_PARSER_KEY_NOT_FOUND){
-			ini_parser.addKeyToSec(section, key, value);
-		}
-
-	}while (ret != INI_PARSER_OK);
-
-	ini_parser.saveToFile(ini_file);
-}
-
 string	View::getLastBrowserDir()
 {
-	// Get last saved directory.
+	// Get last saved directory. If not found use default game directory.
+	string ret = GAME_DIR;
+	const char* key_value = NULL;
 
-	IniParser ini_parser;
-	int ret = INI_PARSER_OK;
-	char key_value[128] = {0};
-
+	int err_code = IniParser::getValueFromIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, &key_value);
 	
-	if ((ret = ini_parser.init(DEF_CONF_FILE_PATH)) == INI_PARSER_OK){
-		ret = ini_parser.getKeyValue(INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, key_value);
+	if (err_code == INI_PARSER_OK && key_value && m_fileExp->dirExist(key_value)){
+		ret = key_value;
+		delete[] key_value;
 	}
 
-	return key_value;
+	return ret;
 }
 
 void View::loadResources()

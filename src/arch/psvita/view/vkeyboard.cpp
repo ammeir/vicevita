@@ -24,9 +24,11 @@
 #include "view.h"
 #include "controls.h"
 #include "texter.h"
+#include "ini_parser.h"
 #include "debug_psv.h"
 #include "resources.h"
 #include "app_defs.h"
+#include "debug_psv.h"
 #include <string.h>
 #include <vector>
 #include <algorithm>
@@ -35,6 +37,15 @@
 using std::vector;
 using std::list;
 
+// Globals
+int  g_keyboardStatus = KEYBOARD_DOWN;
+
+int animationArr[27] = {
+	0,10,20,30,40,50,60,70,80,
+	90,100,110,120,130,140,150,160,
+	170,180,190,200,210,220,230,240,
+	250,264
+};
 
 VirtualKeyboard::VirtualKeyboard()
 {
@@ -45,6 +56,7 @@ VirtualKeyboard::VirtualKeyboard()
 	m_keyboardCtrl = NULL;
 	m_shiftLock = false;
 	m_updated = false;
+	m_animation = true;
 	m_posX = 0;
 	m_posY = 0;
 	m_scaleX = 1;
@@ -90,6 +102,8 @@ void VirtualKeyboard::init(View* view, Controls* controls)
 	m_keyboardCmb = vita2d_load_PNG_buffer(img_keyboard_cmb);
 	m_keyboardCtrl = vita2d_load_PNG_buffer(img_keyboard_ctrl);
 	m_keyboard = m_keyboardStd;
+
+	initAnimation();
 }
 
 void VirtualKeyboard::input(TouchCoordinates* touches, int count)
@@ -178,29 +192,85 @@ void VirtualKeyboard::show()
 
 void VirtualKeyboard::render()
 {
-	vita2d_draw_texture_scale(m_keyboard, m_posX, m_posY, m_scaleX, m_scaleY);
-	m_updated = false;
+	static int i = 0;
+	static int j = 0;
 
-	if (m_touchBuffer.empty())
-		return;
+	if (g_keyboardStatus == KEYBOARD_UP){
+		// Keyboard stationary
 
-	int mid = m_touchBuffer.back();
+		vita2d_draw_texture_scale(m_keyboard, m_posX, m_posY, m_scaleX, m_scaleY);
+		m_updated = false;
 
-	// Darken space bar if pressed.
-	std::list<int>::iterator it = std::find(m_touchBuffer.begin(), m_touchBuffer.end(), 116);
-	if(it != m_touchBuffer.end()){
-		if (g_keyboardMode == KEYBOARD_SPLIT_SCREEN)
-			vita2d_draw_rectangle(196, 479, 406, 42, GREY);
-		else
-			vita2d_draw_rectangle(165, 372, 450, 60, GREY);
+		if (m_touchBuffer.empty())
+			return;
+
+		int mid = m_touchBuffer.back();
+
+		// Darken space bar if pressed.
+		std::list<int>::iterator it = std::find(m_touchBuffer.begin(), m_touchBuffer.end(), 116);
+		if(it != m_touchBuffer.end()){
+			if (g_keyboardMode == KEYBOARD_SPLIT_SCREEN)
+				vita2d_draw_rectangle(196, 479, 406, 42, GREY);
+			else
+				vita2d_draw_rectangle(165, 372, 450, 60, GREY);
+			return;
+		}
+
+		// Ignore shifting keys.
+		if (mid == 23 || mid == 24 || mid == 100 || mid == 114 || mid == 117)
+			return;
+
+		showMagnifiedKey(mid);
 		return;
 	}
 
-	// Ignore shifting keys.
-	if (mid == 23 || mid == 24 || mid == 100 || mid == 114 || mid == 117)
+	if (g_keyboardStatus == KEYBOARD_MOVING_UP){
+		
+		vita2d_draw_texture_part(
+			m_keyboard, 
+			46, // Pos x on vita screen
+			544 - animationArr[i],// Pos y on vita screen
+			0, // Pos x on keyboard bitmap
+			0, // Pos y on keyboard bitmap
+			868, // width of keyboard bitmap
+			animationArr[i]); // height of keyboard bitmap
+		
+		if (i++ == 26){
+			// Add a little delay by drawing the last frame few times.
+			if (j++ > 7){
+				g_keyboardStatus = KEYBOARD_UP;
+				i = j = 0;
+			}else
+				i = 26; 
+		}
+		
+		m_updated = true; // Force redraw.
 		return;
+	}
+		
+	if (g_keyboardStatus == KEYBOARD_MOVING_DOWN){
 
-	showMagnifiedKey(mid);
+		// Add a little delay by drawing the first frame few times.
+		if (j++ < 10)
+			i = 0; 
+		
+		vita2d_draw_texture_part(
+				m_keyboard, 
+				46, // Pos x on vita screen
+				278 + animationArr[i],// Pos y on vita screen
+				0, // Pos x on keyboard bitmap
+				0, // Pos y on keyboard bitmap
+				868, // width of keyboard bitmap
+				264 - animationArr[i]); // height of keyboard bitmap
+
+		if (i++ == 26){
+			g_keyboardStatus = KEYBOARD_DOWN;
+			i = j = 0;
+		}
+		
+		m_updated = true; // Force redraw.
+		return;
+	}
 }
 
 void VirtualKeyboard::setPosition(int x, int y, float scaleX, float scaleY)
@@ -286,9 +356,48 @@ void VirtualKeyboard::showMagnifiedKey(int mid)
 			2);
 }
 
+void VirtualKeyboard::initAnimation()
+{
+	// Check if keyboard sliding animation is disabled in the default conf file.
+	// By default the animation is enabled and for now it can't be changed from settings menu.
+	// If user really wants to disable it he/she has to manually modify to default configuration file.
+
+	m_animation = true;
+	const char* value = NULL;
+
+	int ret = IniParser::getValueFromIni(DEF_CONF_FILE_PATH, 
+										 INI_FILE_SEC_SETTINGS, 
+										 INI_FILE_KEY_KEYBOARD_SLIDE, 
+										 &value);
+
+	if (ret == INI_PARSER_OK && value != NULL){
+		if (!strcmp(value, "Disabled"))
+			m_animation = false;
+
+		delete[] value;
+	}
+}
+
 bool VirtualKeyboard::isUpdated()
 {
 	return m_updated;
+}
+
+void VirtualKeyboard::setAnimation(bool animation)
+{
+	m_animation = animation;
+}
+
+void VirtualKeyboard::toggleVisibility()
+{
+	//PSV_DEBUG("VirtualKeyboard::toggleVisibility()");
+	if (g_keyboardStatus == KEYBOARD_MOVING_UP || g_keyboardStatus == KEYBOARD_MOVING_DOWN)
+		return;
+
+	if (m_animation)
+		g_keyboardStatus = (g_keyboardStatus == KEYBOARD_UP)? KEYBOARD_MOVING_DOWN: KEYBOARD_MOVING_UP;
+	else
+		g_keyboardStatus = (g_keyboardStatus == KEYBOARD_UP)? KEYBOARD_DOWN: KEYBOARD_UP;
 }
 
 int VirtualKeyboard::touchCoordinatesToMid(int x, int y)

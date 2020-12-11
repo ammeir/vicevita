@@ -29,6 +29,8 @@
 #define INI_FILE_SEC_FILE_BROWSER			"Browser"
 #define INI_FILE_KEY_KEYMAPS				"Keymaps"
 #define INI_FILE_KEY_LASTDIR                "LastDir"
+#define INI_FILE_KEY_KEYBOARD_SLIDE         "KeyboardSlide"
+
 
 // VICE resource strings
 #define VICE_RES_CARTRIDGE_RESET			"CartridgeReset"
@@ -69,27 +71,25 @@
 #define KEYBOARD_MODE						12
 #define CPU_SPEED							13
 #define HOST_CPU_SPEED						14
-#define FPS_COUNTER							15
-#define SOUND								16		
-#define DRIVE								17
-#define DRIVE_NUMBER						18
-#define DRIVE_STATUS						19
-#define DRIVE_TRUE_EMULATION				20
-#define DRIVE_SOUND_EMULATION				21
-#define DATASETTE							22
-#define DATASETTE_CONTROL					23
-#define DATASETTE_COUNTER					24
-#define DATASETTE_RESET_WITH_CPU			25
-#define CARTRIDGE							26
-#define CARTRIDGE_RESET						27
-#define MACHINE_RESET						28
-#define MOUSE								29
-#define MOUSE_MODEL							30
-#define MOUSE_PORT							31
-#define SETTINGS_ALL						32
-#define SETTINGS_VIEW						33
-#define SETTINGS_MODEL						34
-#define SETTINGS_MODEL_NOT_IN_SNAP			35
+#define SOUND								15		
+#define DRIVE								16
+#define DRIVE_NUMBER						17
+#define DRIVE_STATUS						18
+#define DRIVE_TRUE_EMULATION				19
+#define DRIVE_SOUND_EMULATION				20
+#define DATASETTE							21
+#define DATASETTE_CONTROL					22
+#define DATASETTE_RESET_WITH_CPU			23
+#define CARTRIDGE							24
+#define CARTRIDGE_RESET						25
+#define MACHINE_RESET						26
+#define MOUSE								27
+#define MOUSE_MODEL							28
+#define MOUSE_PORT							29
+#define SETTINGS_ALL						30
+#define SETTINGS_VIEW						31
+#define SETTINGS_MODEL						32
+#define SETTINGS_MODEL_NOT_IN_SNAP			33
 
 // Setting types
 #define ST_MODEL							1 
