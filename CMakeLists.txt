@@ -690,7 +690,6 @@ target_link_libraries(${SHORT_NAME}
   SceGxm_stub
   SceCommonDialog_stub
   SceHid_stub 
-  #SceNetCtl_stub
   SceIofilemgr_stub
   ScePower_stub 
   ScePgf_stub
