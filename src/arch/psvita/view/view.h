@@ -30,11 +30,7 @@
 
 using std::string;
 
-enum KeyboardMode{KEYBOARD_FULL_SCREEN = 0, KEYBOARD_SPLIT_SCREEN};
-enum AspectRatio {VIEW_ASPECT_RATIO_16_9 = 0, VIEW_ASPECT_RATIO_4_3, VIEW_ASPECT_RATIO_4_3_MAX};
-enum TextureFilter {TEXTURE_FILTER_POINT = 0, TEXTURE_FILTER_LINEAR};
 enum RetCode {EXIT, EXIT_MENU};
-
 
 typedef struct{
 	int x;
@@ -44,7 +40,6 @@ typedef struct{
 } ViewPort;
 
 extern string			g_game_file;
-extern KeyboardMode		g_keyboardMode;
 extern vita2d_texture** g_instructionBitmaps;
 
 
@@ -66,6 +61,14 @@ class View
 
 private:
 
+	float			m_posX;
+	float			m_posY;
+	float			m_scaleX;
+	float			m_scaleY;
+	ViewPort		m_viewport;
+	vita2d_texture*	m_view_tex;
+	unsigned char*	m_view_tex_data;
+
 	Controller*		m_controller;
 	ControlPad*		m_controlPad;
 	MainMenu*		m_mainMenu;
@@ -77,18 +80,11 @@ private:
 	About*			m_about;
 	Statusbar*		m_statusbar;
 	FileExplorer*	m_fileExp;
-	
-	AspectRatio		m_aspectRatio;
-	TextureFilter	m_textureFilter;
-
-	vita2d_texture*	m_view_tex;
-	unsigned char*	m_view_tex_data;
+	int				m_aspectRatio;
 	int				m_width;
 	int				m_height;
-	ViewPort		m_viewport;
 	int				m_viewSizeInBytes;
 	int				m_viewBitDepth;
-	bool			m_keyboardOnView;
 	bool			m_uiActive;
 	bool			m_inGame;
 	int				m_showStatusbar;
@@ -96,17 +92,6 @@ private:
 	bool			m_displayPause;
 	bool			m_pendingDraw;
 	
-	// x,y positions of different views
-	float			m_posXNormalView;
-	float			m_posYNormalView;
-	float			m_posXSplitView;
-	float			m_posYSplitView;
-	// x and y scales of different views
-	float			m_scaleXNormalView;
-	float			m_scaleYNormalView;
-	float			m_scaleXSplitView;
-	float			m_scaleYSplitView;
-
 	string			showMainMenu();
 	void			showStartGame();
 	void			showSaveSlots();
@@ -126,14 +111,11 @@ private:
 	void			showSpeedStats();
 	void			showDatasetteStats();
 	void			loadResources();
-	void			changeAspectRatio(AspectRatio value);
-	void			changeTextureFilter(TextureFilter value);
-	void			changeKeyboardMode(KeyboardMode value);
+	void			changeAspectRatio(const char* value);
+	void			changeKeyboardMode(const char* value);
+	void			changeTextureFilter(const char* value);
 	void			changeJoystickScanSide(const char* side);
 	void			waitKeysIdle();
-	AspectRatio		strToAspectRatio(const char* value);
-	TextureFilter	strToTextureFilter(const char* value);
-	KeyboardMode	strToKeyboardMode(const char* value);
 	string			getFileNameNoExt(const char* fpath);
 	void			setHostCpuFrequency(const char* freq);
 	void			updateControls();
@@ -141,7 +123,6 @@ private:
 	void			cleanTmpDir();
 	string			getLastBrowserDir();
 	void			printTestRect();
-
 
 public: 
 					View();
@@ -152,6 +133,7 @@ public:
 	void			scanControls(ControlPadMap** maps, int* size, bool scan_mouse);
 	int				createView(int width, int height, int bpp);
 	void			updateView();
+	void			updateViewPos();
 	void			updateViewport(int x, int y, int width, int height);
 	void			getViewInfo(int* width, int* height, unsigned char** ppixels, int* pitch, int* bpp);
 	void			getViewportInfo(int* x, int* y, int* width, int* height);
@@ -168,8 +150,8 @@ public:
 	void			displayPaused(int);
 	void			toggleStatusbarOnView();
 	void			toggleKeyboardOnView();
-	bool			isKeyboardOnView();
 	bool			isBorderlessView();
+	void			applySetting(int);
 	void			applyAllSettings();
 	void			setProperty(int key, const char* value);
 	void			activateMenu();

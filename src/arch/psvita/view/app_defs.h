@@ -29,7 +29,6 @@
 #define INI_FILE_SEC_FILE_BROWSER			"Browser"
 #define INI_FILE_KEY_KEYMAPS				"Keymaps"
 #define INI_FILE_KEY_LASTDIR                "LastDir"
-#define INI_FILE_KEY_KEYBOARD_SLIDE         "KeyboardSlide"
 
 
 // VICE resource strings

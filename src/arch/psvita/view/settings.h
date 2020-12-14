@@ -69,9 +69,6 @@ private:
 	int						m_textColor;
 	int						m_highlightColor;
 	ScrollBar				m_scrollBar;
-	string					m_aspectRatio;
-	string					m_textureFilter;
-	string					m_keyboardMode;
 	int						m_highligtBarYpos;
 	int						m_posXValue;
 	int						m_maxValueWidth;

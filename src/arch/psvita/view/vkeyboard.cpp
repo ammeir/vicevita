@@ -37,7 +37,7 @@
 using std::vector;
 using std::list;
 
-// Globals
+// Globals (used for better performance).
 int  g_keyboardStatus = KEYBOARD_DOWN;
 
 int animationArr[27] = {
@@ -56,7 +56,7 @@ VirtualKeyboard::VirtualKeyboard()
 	m_keyboardCtrl = NULL;
 	m_shiftLock = false;
 	m_updated = false;
-	m_animation = true;
+	m_keyboardMode = KEYBOARD_SLIDER;
 	m_posX = 0;
 	m_posY = 0;
 	m_scaleX = 1;
@@ -102,8 +102,6 @@ void VirtualKeyboard::init(View* view, Controls* controls)
 	m_keyboardCmb = vita2d_load_PNG_buffer(img_keyboard_cmb);
 	m_keyboardCtrl = vita2d_load_PNG_buffer(img_keyboard_ctrl);
 	m_keyboard = m_keyboardStd;
-
-	initAnimation();
 }
 
 void VirtualKeyboard::input(TouchCoordinates* touches, int count)
@@ -209,7 +207,7 @@ void VirtualKeyboard::render()
 		// Darken space bar if pressed.
 		std::list<int>::iterator it = std::find(m_touchBuffer.begin(), m_touchBuffer.end(), 116);
 		if(it != m_touchBuffer.end()){
-			if (g_keyboardMode == KEYBOARD_SPLIT_SCREEN)
+			if (m_keyboardMode == KEYBOARD_SLIDER || m_keyboardMode == KEYBOARD_SPLIT_SCREEN)
 				vita2d_draw_rectangle(196, 479, 406, 42, GREY);
 			else
 				vita2d_draw_rectangle(165, 372, 450, 60, GREY);
@@ -239,12 +237,15 @@ void VirtualKeyboard::render()
 			// Add a little delay by drawing the last frame few times.
 			if (j++ > 7){
 				g_keyboardStatus = KEYBOARD_UP;
+				m_view->updateViewPos(); // Make a split screen.
 				i = j = 0;
 			}else
 				i = 26; 
 		}
 		
-		m_updated = true; // Force redraw.
+		// Force redraw to keep the animation on. This eats performance a little.
+		m_updated = true; 
+
 		return;
 	}
 		
@@ -265,10 +266,12 @@ void VirtualKeyboard::render()
 
 		if (i++ == 26){
 			g_keyboardStatus = KEYBOARD_DOWN;
+			m_updated = false;
 			i = j = 0;
+			return;
 		}
-		
-		m_updated = true; // Force redraw.
+			
+		m_updated = true;
 		return;
 	}
 }
@@ -335,7 +338,7 @@ void VirtualKeyboard::showMagnifiedKey(int mid)
 	midToKeyboardCoordinates(mid, &rc);
 
 	// Key box position on the vita screen.
-	if (g_keyboardMode == KEYBOARD_SPLIT_SCREEN){
+	if (m_keyboardMode == KEYBOARD_SLIDER || m_keyboardMode == KEYBOARD_SPLIT_SCREEN){
 		key_pos_x = m_posX+rc.x-20;
 		key_pos_y = m_posY+rc.y-120;
 	}
@@ -356,36 +359,9 @@ void VirtualKeyboard::showMagnifiedKey(int mid)
 			2);
 }
 
-void VirtualKeyboard::initAnimation()
-{
-	// Check if keyboard sliding animation is disabled in the default conf file.
-	// By default the animation is enabled and for now it can't be changed from settings menu.
-	// If user really wants to disable it he/she has to manually modify to default configuration file.
-
-	m_animation = true;
-	const char* value = NULL;
-
-	int ret = IniParser::getValueFromIni(DEF_CONF_FILE_PATH, 
-										 INI_FILE_SEC_SETTINGS, 
-										 INI_FILE_KEY_KEYBOARD_SLIDE, 
-										 &value);
-
-	if (ret == INI_PARSER_OK && value != NULL){
-		if (!strcmp(value, "Disabled"))
-			m_animation = false;
-
-		delete[] value;
-	}
-}
-
 bool VirtualKeyboard::isUpdated()
 {
 	return m_updated;
-}
-
-void VirtualKeyboard::setAnimation(bool animation)
-{
-	m_animation = animation;
 }
 
 void VirtualKeyboard::toggleVisibility()
@@ -394,189 +370,37 @@ void VirtualKeyboard::toggleVisibility()
 	if (g_keyboardStatus == KEYBOARD_MOVING_UP || g_keyboardStatus == KEYBOARD_MOVING_DOWN)
 		return;
 
-	if (m_animation)
+	if (m_keyboardMode == KEYBOARD_SLIDER){
 		g_keyboardStatus = (g_keyboardStatus == KEYBOARD_UP)? KEYBOARD_MOVING_DOWN: KEYBOARD_MOVING_UP;
-	else
+		if (g_keyboardStatus == KEYBOARD_MOVING_DOWN)
+			m_view->applySetting(BORDERS); // Undo the split screen.
+	}else{
 		g_keyboardStatus = (g_keyboardStatus == KEYBOARD_UP)? KEYBOARD_DOWN: KEYBOARD_UP;
+		m_view->updateViewPos();
+	}
+}
+
+void VirtualKeyboard::setMode(int keyboard_mode)
+{
+	m_keyboardMode = keyboard_mode;
+}
+
+int	VirtualKeyboard::getMode()
+{
+	return m_keyboardMode;
 }
 
 int VirtualKeyboard::touchCoordinatesToMid(int x, int y)
 {
 	// Convert touch coordinates to keyboard matrix id.
-	// TODO: Lookup table would be better here.
+	// TODO: Consider putting this in a lookup table.
 
 	// Touch screen coordinates are for some reason 1920x1088,
 	// double the actual screen resolution. Convert for easier handling.
 	x >>= 1;
 	y >>= 1;
 	
-	if (g_keyboardMode == KEYBOARD_FULL_SCREEN){
-
-		if (y >= 106 && y <= 166) // First row
-		{
-			if (x < 440){
-				if (x >= 36 && x <= 81)
-					return 113; // Arrow left
-				if (x >= 86 && x <= 131)
-					return 112; // 1
-				if (x >= 137 && x <= 182)
-					return 115; // 2
-				if (x >= 188 && x <= 233)
-					return 16; // 3
-				if (x >= 239 && x <= 284)
-					return 19; // 4
-				if (x >= 290 && x <= 335)
-					return 32; // 5
-				if (x >= 341 && x <= 386)
-					return 35; // 6
-				if (x >= 392 && x <= 437)
-					return 48; // 7	
-			}
-			else{
-				if (x >= 442 && x <= 487)
-					return 51; // 8
-				if (x >= 493 && x <= 538)
-					return 64; // 9
-				if (x >= 544 && x <= 589)
-					return 67; // 0
-				if (x >= 595 && x <= 640)
-					return 80; // +
-				if (x >= 646 && x <= 691)
-					return 83; // -
-				if (x >= 697 && x <= 742)
-					return 96; // Pound
-				if (x >= 748 && x <= 793)
-					return 99; // Home/Clr
-				if (x >= 799 && x <= 844)
-					return 0; // Del/Inst
-				if (x >= 868 && x <= 950)
-					return 4; // F1/F2
-			}
-		}
-		else if (y >= 173 && y <= 233) // Second row
-		{
-			if (x < 468){
-				if (x >= 36 && x <= 106)
-					return 114; // CTRL
-				if (x >= 113 && x <= 158)
-					return 118; // Q
-				if (x >=164 && x <= 209)
-					return 17; // W
-				if (x >= 215 && x <= 260)
-					return 22; // E
-				if (x >= 266 && x <= 311)
-					return 33; // R
-				if (x >=317 && x <= 362)
-					return 38; // T
-				if (x >= 368 && x <= 413)
-					return 49; // Y
-				if (x >= 419 && x <= 464)
-					return 54; // U
-			}
-			else{
-				if (x >= 470 && x <= 515)
-					return 65; // I
-				if (x >= 520 && x <= 565)
-					return 70; // O
-				if (x >= 571 && x <= 616)
-					return 81; // P
-				if (x >= 622 && x <= 667)
-					return 86; // @
-				if (x >= 673 && x <= 718)
-					return 97; // *
-				if (x >= 724 && x <= 769)
-					return 102; // Arrow up
-				if (x >= 775 && x <= 845)
-					return 56; // Restore
-				if (x >= 868 && x <= 950)
-					return 5; // F3/F4
-			}
-		}
-		else if (y >= 239 && y <= 299) // Third row
-		{
-			if (x < 427){
-				if (x >= 23 && x <= 68)
-					return 119; // Run/Stop
-				if (x >= 74 && x <= 119)
-					return 24; // Shift lock. This is 23 according to the matrix table but we have to differentiate it from left shift.
-				if (x >= 124 && x <= 169)
-					return 18; // A
-				if (x >= 175 && x <= 220)
-					return 21; // S
-				if (x >= 226 && x <= 271)
-					return 34; // D
-				if (x >= 277 && x <= 322)
-					return 37; // F
-				if (x >= 328 && x <= 373)
-					return 50; // G
-				if (x >= 379 && x <= 424)
-					return 53; // H
-			}
-			else{
-				if (x >= 429 && x <= 474)
-					return 66; // J
-				if (x >= 480 && x <= 525)
-					return 69; // K
-				if (x >= 531 && x <= 576)
-					return 82; // L
-				if (x >= 582 && x <= 627)
-					return 85; // :
-				if (x >= 633 && x <= 678)
-					return 98; // ;
-				if (x >= 684 && x <= 729)
-					return 101; // =
-				if (x >= 735 && x <= 840)
-					return 1; // Return
-				if (x >= 868 && x <= 950)
-					return 6; // F5/F6
-			}
-		}
-		else if (y >= 305 && y <= 365) // Fourth row
-		{
-			if (x < 452){
-				if (x >= 20 && x <= 68)
-					return 117; // C=
-				if (x >= 73 && x <= 143)
-					return 23; // Left shift.
-				if (x >= 148 && x <= 193)
-					return 20; // Z
-				if (x >= 199 && x <= 244)
-					return 39; // X
-				if (x >= 250 && x <= 295)
-					return 36; // C
-				if (x >= 301 && x <= 346)
-					return 55; // V
-				if (x >= 352 && x <= 397)
-					return 52; // B
-				if (x >= 403 && x <= 448)
-					return 71; // N
-			}
-			else{
-				if (x >= 453 && x <= 498)
-					return 68; // M
-				if (x >= 504 && x <= 549)
-					return 87; // <
-				if (x >= 555 && x <= 600)
-					return 84; // >
-				if (x >= 606 && x <= 651)
-					return 103; // ?
-				if (x >= 657 && x <= 729)
-					return 100; // Right shift
-				if (x >= 734 && x <= 779)
-					return 7; // Cursor up/down
-				if (x >= 785 && x <= 830)
-					return 2; // Cursor left/right
-				if (x >= 868 && x <= 950)
-					return 3; // F7/F8
-			}
-		}
-		else if (y >= 372 && y <= 432) // Space bar
-		{
-			if (x >= 165 && x <= 615)
-				return 116;
-		}
-	}
-	else if (g_keyboardMode == KEYBOARD_SPLIT_SCREEN){
+	if (m_keyboardMode == KEYBOARD_SLIDER || m_keyboardMode == KEYBOARD_SPLIT_SCREEN){
 
 		if (y >= 280 && y <= 339) // First row
 		{
@@ -749,6 +573,172 @@ int VirtualKeyboard::touchCoordinatesToMid(int x, int y)
 		else if (y >= 491 && y <= 540) // Space bar
 		{
 			if (x >= 194 && x <= 600) 
+				return 116;
+		}
+	}
+	else if (m_keyboardMode == KEYBOARD_FULL_SCREEN){
+
+		if (y >= 106 && y <= 166) // First row
+		{
+			if (x < 440){
+				if (x >= 36 && x <= 81)
+					return 113; // Arrow left
+				if (x >= 86 && x <= 131)
+					return 112; // 1
+				if (x >= 137 && x <= 182)
+					return 115; // 2
+				if (x >= 188 && x <= 233)
+					return 16; // 3
+				if (x >= 239 && x <= 284)
+					return 19; // 4
+				if (x >= 290 && x <= 335)
+					return 32; // 5
+				if (x >= 341 && x <= 386)
+					return 35; // 6
+				if (x >= 392 && x <= 437)
+					return 48; // 7	
+			}
+			else{
+				if (x >= 442 && x <= 487)
+					return 51; // 8
+				if (x >= 493 && x <= 538)
+					return 64; // 9
+				if (x >= 544 && x <= 589)
+					return 67; // 0
+				if (x >= 595 && x <= 640)
+					return 80; // +
+				if (x >= 646 && x <= 691)
+					return 83; // -
+				if (x >= 697 && x <= 742)
+					return 96; // Pound
+				if (x >= 748 && x <= 793)
+					return 99; // Home/Clr
+				if (x >= 799 && x <= 844)
+					return 0; // Del/Inst
+				if (x >= 868 && x <= 950)
+					return 4; // F1/F2
+			}
+		}
+		else if (y >= 173 && y <= 233) // Second row
+		{
+			if (x < 468){
+				if (x >= 36 && x <= 106)
+					return 114; // CTRL
+				if (x >= 113 && x <= 158)
+					return 118; // Q
+				if (x >=164 && x <= 209)
+					return 17; // W
+				if (x >= 215 && x <= 260)
+					return 22; // E
+				if (x >= 266 && x <= 311)
+					return 33; // R
+				if (x >=317 && x <= 362)
+					return 38; // T
+				if (x >= 368 && x <= 413)
+					return 49; // Y
+				if (x >= 419 && x <= 464)
+					return 54; // U
+			}
+			else{
+				if (x >= 470 && x <= 515)
+					return 65; // I
+				if (x >= 520 && x <= 565)
+					return 70; // O
+				if (x >= 571 && x <= 616)
+					return 81; // P
+				if (x >= 622 && x <= 667)
+					return 86; // @
+				if (x >= 673 && x <= 718)
+					return 97; // *
+				if (x >= 724 && x <= 769)
+					return 102; // Arrow up
+				if (x >= 775 && x <= 845)
+					return 56; // Restore
+				if (x >= 868 && x <= 950)
+					return 5; // F3/F4
+			}
+		}
+		else if (y >= 239 && y <= 299) // Third row
+		{
+			if (x < 427){
+				if (x >= 23 && x <= 68)
+					return 119; // Run/Stop
+				if (x >= 74 && x <= 119)
+					return 24; // Shift lock. This is 23 according to the matrix table but we have to differentiate it from left shift.
+				if (x >= 124 && x <= 169)
+					return 18; // A
+				if (x >= 175 && x <= 220)
+					return 21; // S
+				if (x >= 226 && x <= 271)
+					return 34; // D
+				if (x >= 277 && x <= 322)
+					return 37; // F
+				if (x >= 328 && x <= 373)
+					return 50; // G
+				if (x >= 379 && x <= 424)
+					return 53; // H
+			}
+			else{
+				if (x >= 429 && x <= 474)
+					return 66; // J
+				if (x >= 480 && x <= 525)
+					return 69; // K
+				if (x >= 531 && x <= 576)
+					return 82; // L
+				if (x >= 582 && x <= 627)
+					return 85; // :
+				if (x >= 633 && x <= 678)
+					return 98; // ;
+				if (x >= 684 && x <= 729)
+					return 101; // =
+				if (x >= 735 && x <= 840)
+					return 1; // Return
+				if (x >= 868 && x <= 950)
+					return 6; // F5/F6
+			}
+		}
+		else if (y >= 305 && y <= 365) // Fourth row
+		{
+			if (x < 452){
+				if (x >= 20 && x <= 68)
+					return 117; // C=
+				if (x >= 73 && x <= 143)
+					return 23; // Left shift.
+				if (x >= 148 && x <= 193)
+					return 20; // Z
+				if (x >= 199 && x <= 244)
+					return 39; // X
+				if (x >= 250 && x <= 295)
+					return 36; // C
+				if (x >= 301 && x <= 346)
+					return 55; // V
+				if (x >= 352 && x <= 397)
+					return 52; // B
+				if (x >= 403 && x <= 448)
+					return 71; // N
+			}
+			else{
+				if (x >= 453 && x <= 498)
+					return 68; // M
+				if (x >= 504 && x <= 549)
+					return 87; // <
+				if (x >= 555 && x <= 600)
+					return 84; // >
+				if (x >= 606 && x <= 651)
+					return 103; // ?
+				if (x >= 657 && x <= 729)
+					return 100; // Right shift
+				if (x >= 734 && x <= 779)
+					return 7; // Cursor up/down
+				if (x >= 785 && x <= 830)
+					return 2; // Cursor left/right
+				if (x >= 868 && x <= 950)
+					return 3; // F7/F8
+			}
+		}
+		else if (y >= 372 && y <= 432) // Space bar
+		{
+			if (x >= 165 && x <= 615)
 				return 116;
 		}
 	}

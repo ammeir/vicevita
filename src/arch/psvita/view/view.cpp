@@ -46,14 +46,26 @@
 #include <psp2/ctrl.h>
 #include <psp2/power.h>
 #include <psp2/kernel/threadmgr.h> 
-
 #include <psp2/io/dirent.h> 
 
-// Globals
+// Globals (Static keyword makes the variable global only inside the file).
 string				g_game_file;
-KeyboardMode		g_keyboardMode;
 vita2d_texture**	g_instructionBitmaps;
 static int			gs_instructionBitmapsSize = 0;
+static const char*  gs_browserFilter[] = {
+	"CRT",												// Cartridge image
+	"D64","D71","D80","D81","D82","G64","G41","X64",	// Disk image
+	"T64","TAP",										// Tape image
+	"PRG","P00",										// Program image
+	"ZIP",												// Archive file
+	NULL
+};
+
+#define VIEW_ASPECT_RATIO_16_9		1
+#define VIEW_ASPECT_RATIO_4_3		2
+#define VIEW_ASPECT_RATIO_4_3_MAX	3
+#define TEXTURE_FILTER_POINT		4
+#define TEXTURE_FILTER_LINEAR		5
 
 // Converts RGB triple to an pixel value of format 5-6-5.
 #define RGB(r,g,b) ((r>>3)<<11) | ((g>>2)<< 5) | (b>>3)
@@ -72,10 +84,10 @@ View::View()
 	m_keyboard			= NULL;
 	m_view_tex			= NULL;
 	m_fileExp			= NULL;
-	m_posXNormalView	= 0;
-	m_posYNormalView	= 0;
-	m_scaleXNormalView  = 1;
-	m_scaleYNormalView  = 1;
+	m_posX				= 0;
+	m_posY				= 0;
+	m_scaleX			= 1;
+	m_scaleY			= 1;
 	m_statusbarMask		= 0;
 	m_showStatusbar		= false;
 	m_inGame			= false;
@@ -150,17 +162,7 @@ void View::init(Controller* controller)
 	loadResources();
 
 	string last_dir = getLastBrowserDir();
-
-	// Browser file filter.
-	const char* filter[] = {
-	   "CRT",														// Cartridge image
-       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
-       "T64","TAP",													// Tape image
-	   "PRG","P00",													// Program image
-	   "ZIP",														// Archive file
-	   NULL};
-
-	m_fileExp->init(last_dir.c_str(),0,0,0,filter);
+	m_fileExp->init(last_dir.c_str(),0,0,0,gs_browserFilter);
 
 	// This is silly but it helps performance.
 	// First time saving to ini file is considerably slower than subsequent save. We might as well do it 
@@ -217,6 +219,7 @@ void View::handleMainMenuSelection(string& selection)
 		m_inGame = true;
 		m_uiActive = false;
 		waitKeysIdle(); // To avoid pushing circle button inside game
+		
 		// Vice only draws when necessary and if a game is in a still image a draw won't come.
 		// Draw the last buffer we got so we atleast respond to the button press. 
 		updateView(); 
@@ -261,78 +264,89 @@ void View::updateView()
 	vita2d_start_drawing();
 	vita2d_clear_screen();
 
-	if (g_keyboardStatus == KEYBOARD_DOWN){ 
-		// Normal view.
+	// Don't draw view if keyboard is in fullscreen.
+	//if (!(g_keyboardStatus == KEYBOARD_UP && m_keyboard->getMode() == KEYBOARD_FULL_SCREEN)){
 		vita2d_draw_texture_part_scale(
 			m_view_tex, 
-			m_posXNormalView, 
-			m_posYNormalView, 
+			m_posX, 
+			m_posY, 
 			m_viewport.x, 
 			m_viewport.y, 
 			m_viewport.width, 
 			m_viewport.height, 
-			m_scaleXNormalView, 
-			m_scaleYNormalView);
-	}
-	else if (g_keyboardStatus == KEYBOARD_UP){
-		// Split screen or full screen.
-		if (g_keyboardMode != KEYBOARD_FULL_SCREEN){
-			static ViewPort vp;
-			
-			// Draw borderless view for bigger screen.
-			if (m_controller->getViewport(&vp, false) == 0){
-				vita2d_draw_texture_part_scale(
-					m_view_tex, 
-					m_posXSplitView, 
-					m_posYSplitView, 
-					vp.x,
-					vp.y,
-					vp.width,
-					vp.height,
-					m_scaleXSplitView, 
-					m_scaleYSplitView);
-			}
-		}
+			m_scaleX, 
+			m_scaleY);
+	//}
 
+	if (g_keyboardStatus & KEYBOARD_VISIBLE)
 		m_keyboard->render();
-	}
-	else{
-		// Keyboard animating up/down.
-		vita2d_draw_texture_part_scale(
-			m_view_tex, 
-			m_posXNormalView, 
-			m_posYNormalView, 
-			m_viewport.x, 
-			m_viewport.y, 
-			m_viewport.width, 
-			m_viewport.height, 
-			m_scaleXNormalView, 
-			m_scaleYNormalView);
 
-		m_keyboard->render();
-	}
-
-	if (m_showStatusbar){
+	if (m_showStatusbar)
 		m_statusbar->render();
-	}
 
-	if (m_displayPause){
+	if (m_displayPause)
 		txtr_draw_text(870, 534, YELLOW, "Paused");
-	}
-
+	
     vita2d_end_drawing();
     vita2d_swap_buffers();
 }
 
+void View::updateViewPos()
+{
+	//PSV_DEBUG("View::updateViewPos()");
+
+	if (g_keyboardStatus == KEYBOARD_UP && m_keyboard->getMode() != KEYBOARD_FULL_SCREEN){
+		// Split screen keyboard view. 
+		
+		// Hide the borders to get a bigger screen.
+		m_viewport.x = 136;
+		m_viewport.y = 51;
+		m_viewport.width = 320;
+		m_viewport.height = 200;
+
+		float scaleY = (float)276/m_viewport.height; 
+		float scaleX = (float)16/9;
+		m_posX = (960 - 320*scaleX) / 2;
+		m_posY = 0;
+		m_scaleX = (float)16/9;
+		m_scaleY = scaleY;
+
+		return;
+	}
+	
+	switch (m_aspectRatio){
+	case VIEW_ASPECT_RATIO_16_9:
+		m_posX = 0;
+		m_posY = 0;
+		m_scaleX = (float)960/m_viewport.width;
+		m_scaleY = (!m_showStatusbar)? (float)544/m_viewport.height: (float)514/m_viewport.height;
+		break;
+	case VIEW_ASPECT_RATIO_4_3:
+		m_posX = (960-m_viewport.width*2)/2;
+		m_posY = (544-m_viewport.height*2)/2;
+		m_scaleX = 2;
+		m_scaleY = (!m_showStatusbar)? 2: (float)514/272;	
+		break;
+	case VIEW_ASPECT_RATIO_4_3_MAX:
+		m_scaleX = (float)544/m_viewport.height;
+		m_scaleY = (!m_showStatusbar)? m_scaleX: (float)514/m_viewport.height;
+		m_posX = (960-(m_viewport.width*m_scaleX))/2;
+		m_posY = 0;
+		break;
+	default:
+		break;
+	};
+}
+
 void View::updateViewport(int x, int y, int width, int height)
 {
+	//PSV_DEBUG("View::updateViewport()");
 	m_viewport.x = x;
 	m_viewport.y = y;
 	m_viewport.width = width;
 	m_viewport.height = height;
 
-	changeAspectRatio(m_aspectRatio);
-	changeKeyboardMode(g_keyboardMode);
+	updateViewPos();
 }
 
 void View::getViewInfo(int* width, int* height, unsigned char** ppixels, int* pitch, int* bpp)
@@ -439,7 +453,7 @@ void View::displayPaused(int val)
 void View::toggleStatusbarOnView()
 {
 	m_showStatusbar = !m_showStatusbar;
-	changeAspectRatio(m_aspectRatio);
+	updateViewPos();
 
 	if (!m_showStatusbar)
 		m_pendingDraw = true; // Force view update incase we are in still image.
@@ -500,11 +514,6 @@ void View::createDefConfFile()
 	m_settings->createConfFile(DEF_CONF_FILE_PATH);
 }
 
-bool View::isKeyboardOnView()
-{
-	return g_keyboardStatus == KEYBOARD_UP;
-}
-
 bool View::isBorderlessView()
 {
 	return m_settings->getKeyValue(BORDERS) == "Hide"? true: false;
@@ -523,6 +532,12 @@ string View::showMainMenu()
 
 void View::showStartGame()
 {
+
+	// Check if browser directory needs update.
+	string last_dir = getLastBrowserDir();
+	if (last_dir != m_fileExp->getDir())
+		m_fileExp->init(last_dir.c_str(),0,0,0,gs_browserFilter);
+
 	string entry_dir = m_fileExp->getDir();
 	string selection;
 	int ret;
@@ -636,57 +651,38 @@ void View::updateSettings()
 	m_settings->applySettings(SETTINGS_ALL);
 }
 
-void View::changeAspectRatio(AspectRatio value)
+void View::changeAspectRatio(const char* value)
 {
-	switch (value){
-	case VIEW_ASPECT_RATIO_16_9:
-		m_aspectRatio = value;
-		m_posXNormalView = 0;
-		m_posYNormalView = 0;
-		m_scaleXNormalView = (float)960/m_viewport.width;
-		m_scaleYNormalView = (!m_showStatusbar)? (float)544/m_viewport.height: (float)514/m_viewport.height;
-		break;
-	case VIEW_ASPECT_RATIO_4_3:
-		m_aspectRatio = value;
-		m_posXNormalView = (960-m_viewport.width*2)/2;
-		m_posYNormalView = (544-m_viewport.height*2)/2;
-		m_scaleXNormalView = 2;
-		m_scaleYNormalView = (!m_showStatusbar)? 2: (float)514/272;;	
-		break;
-	case VIEW_ASPECT_RATIO_4_3_MAX:
-		m_aspectRatio = value;
-		m_scaleXNormalView = (float)544/m_viewport.height;
-		m_scaleYNormalView = (!m_showStatusbar)? m_scaleXNormalView: (float)514/m_viewport.height;
-		m_posXNormalView = (960-(m_viewport.width*m_scaleXNormalView))/2;
-		m_posYNormalView = 0;
-		break;
-	default:
-		break;
-	};
+	if (!strcmp(value, "16:9")){
+		m_aspectRatio = VIEW_ASPECT_RATIO_16_9;
+	}
+	else if (!strcmp(value, "4:3")){
+		m_aspectRatio = VIEW_ASPECT_RATIO_4_3;
+	}
+	else if (!strcmp(value, "4:3 max")){ // Scaled to maximum height
+		m_aspectRatio = VIEW_ASPECT_RATIO_4_3_MAX;
+	}
 }
 
-void View::changeTextureFilter(TextureFilter value)
+void View::changeKeyboardMode(const char* value)
 {
-	switch (value){
-	case TEXTURE_FILTER_POINT:
-		m_textureFilter = value;
-		vita2d_texture_set_filters(m_view_tex, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_POINT, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_POINT);
-		break;
-	case TEXTURE_FILTER_LINEAR:
-		m_textureFilter = value;
-		vita2d_texture_set_filters(m_view_tex, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_LINEAR, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_LINEAR);
-		break;
-	default:
-		break;
-	};
-}
+	int mode;
+	
+	if (!strcmp(value, "Slider"))
+		mode = KEYBOARD_SLIDER;
+	else if (!strcmp(value, "Split screen"))
+		mode = KEYBOARD_SPLIT_SCREEN;
+	else if (!strcmp(value, "Full screen"))
+		mode = KEYBOARD_FULL_SCREEN;
+	else
+		return;
 
-void View::changeKeyboardMode(KeyboardMode value)
-{
-	switch (value){
+	m_keyboard->setMode(mode);
+
+	// Calculate new keyboard positon.
+	switch (mode){
 	case KEYBOARD_FULL_SCREEN:
 	{
-		g_keyboardMode = value;
 		float scaleX = (float)960/868;
 		float scaleY = 1.44;
 		int y = (544-265*scaleY)/2;
@@ -694,27 +690,21 @@ void View::changeKeyboardMode(KeyboardMode value)
 		m_keyboard->setPosition(x, y, scaleX, scaleY);
 		break;
 	}
+	case KEYBOARD_SLIDER:
 	case KEYBOARD_SPLIT_SCREEN:
-	{
-		// View coordinations
-		static ViewPort vp;
-		// Get borderless viewport
-		if (m_controller->getViewport(&vp, false) < 0)
-			break;
-		g_keyboardMode = value;
-		float scaleY = (float)276/vp.height; 
-		float scaleX = (float)16/9;//scaleY;
-		m_posXSplitView = (960 - vp.width*scaleX) / 2;
-		m_posYSplitView = 0; 
-		m_scaleXSplitView = scaleX; 
-		m_scaleYSplitView = scaleY; 
-
 		m_keyboard->setPosition((960-868) / 2, 278, 1, 1);
 		break;
-	}
 	default:
 		break;
 	};
+}
+
+void View::changeTextureFilter(const char* value)
+{
+	if (!strcmp(value, "Linear"))
+		vita2d_texture_set_filters(m_view_tex, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_LINEAR, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_LINEAR);
+	else if (!strcmp(value, "Point"))
+		vita2d_texture_set_filters(m_view_tex, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_POINT, (SceGxmTextureFilter)SCE_GXM_TEXTURE_FILTER_POINT);
 }
 
 void View::setHostCpuFrequency(const char* freq)
@@ -766,6 +756,11 @@ void View::onSettingChanged(int key, const char* value, const char* src, const c
 	}
 }
 
+void View::applySetting(int key_id)
+{
+	m_settings->applySetting(key_id);
+}
+
 void View::applyAllSettings()
 {
 	m_settings->applySettings(SETTINGS_ALL);
@@ -776,10 +771,11 @@ void View::setProperty(int key, const char* value)
 {
 	switch (key){
 	case ASPECT_RATIO:
-		changeAspectRatio(strToAspectRatio(value));
+		changeAspectRatio(value);
+		updateViewPos();
 		break;
 	case TEXTURE_FILTER:
-		changeTextureFilter(strToTextureFilter(value));
+		changeTextureFilter(value);
 		break;
 	case BORDERS:
 		m_controller->setBorderVisibility(value);
@@ -791,7 +787,7 @@ void View::setProperty(int key, const char* value)
 		m_controller->setJoystickAutofireSpeed(value);
 		break;
 	case KEYBOARD_MODE:
-		changeKeyboardMode(strToKeyboardMode(value));
+		changeKeyboardMode(value);
 		break;
 	case HOST_CPU_SPEED:
 		setHostCpuFrequency(value);
@@ -890,40 +886,6 @@ void View::notifyReset()
 	updateSettings();
 }
 	
-
-AspectRatio View::strToAspectRatio(const char* value)
-{
-	if (!strcmp(value, "16:9"))
-		return VIEW_ASPECT_RATIO_16_9;
-	else if (!strcmp(value, "4:3"))
-		return VIEW_ASPECT_RATIO_4_3;
-	else if (!strcmp(value, "4:3 Max")) // Scaled to maximum height
-		return VIEW_ASPECT_RATIO_4_3_MAX;
-
-	// Default
-	return VIEW_ASPECT_RATIO_4_3_MAX;
-}
-
-KeyboardMode View::strToKeyboardMode(const char* value)
-{
-	if (!strcmp(value, "Full screen"))
-		return KEYBOARD_FULL_SCREEN;
-	else if (!strcmp(value, "Split screen"))
-		return KEYBOARD_SPLIT_SCREEN;
-
-	return KEYBOARD_SPLIT_SCREEN;
-}
-
-TextureFilter View::strToTextureFilter(const char* value)
-{
-	if (!strcmp(value, "Linear"))
-		return TEXTURE_FILTER_LINEAR;
-	else if (!strcmp(value, "Point"))
-		return TEXTURE_FILTER_POINT;
-
-	return TEXTURE_FILTER_LINEAR;
-}
-
 string View::getFileNameNoExt(const char* fpath)
 {
 	string fname = fpath;

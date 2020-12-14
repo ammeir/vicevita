@@ -38,10 +38,17 @@ typedef struct{
 	int height;
 }RectCoordinates;
 
-#define KEYBOARD_UP			 0x01
-#define KEYBOARD_DOWN		 0x02
-#define KEYBOARD_MOVING_UP	 0x04
-#define KEYBOARD_MOVING_DOWN 0x08
+// Keyboard type.
+#define KEYBOARD_FULL_SCREEN			1
+#define KEYBOARD_SPLIT_SCREEN			2
+#define KEYBOARD_SLIDER					3
+
+// Keyboard status.
+#define KEYBOARD_DOWN					0x01
+#define KEYBOARD_UP						0x02
+#define KEYBOARD_MOVING_UP				0x04
+#define KEYBOARD_MOVING_DOWN			0x08
+#define KEYBOARD_VISIBLE				0x0e
 
 extern int  g_keyboardStatus;
 
@@ -52,13 +59,14 @@ class VirtualKeyboard
 {
 
 private:
-	View*				m_view;
-	std::list<int>		m_touchBuffer; 
-	ControlPadMap*		m_keyMapLookup;
+
 	float				m_posX;
 	float				m_posY;
 	float				m_scaleX;
 	float				m_scaleY;
+	View*				m_view;
+	std::list<int>		m_touchBuffer; 
+	ControlPadMap*		m_keyMapLookup;
 	vita2d_texture*		m_keyboard;
 	vita2d_texture*		m_keyboardStd;
 	vita2d_texture*		m_keyboardShift;
@@ -66,13 +74,12 @@ private:
 	vita2d_texture*		m_keyboardCtrl;
 	bool				m_shiftLock;
 	bool				m_updated;
-	bool				m_animation;
+	int					m_keyboardMode;
 
 	void				changeLayout(int mid);
 	int					touchCoordinatesToMid(int x, int y);
 	void				midToKeyboardCoordinates(int mid, RectCoordinates* tc);
 	void				showMagnifiedKey(int mid);
-	void				initAnimation();
 
 public:
 						VirtualKeyboard();
@@ -86,8 +93,9 @@ public:
 	void				setPosition(int x, int y, float scaleX, float scaleY);
 	void				clear();
 	bool				isUpdated();
-	void				setAnimation(bool);
 	void				toggleVisibility();
+	void				setMode(int);
+	int					getMode();
 };
 
 #endif

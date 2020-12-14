@@ -64,18 +64,17 @@ typedef struct
 	int				isSetting; // Save value to configuration file.
 } PeripheralEntry;
 
-// Entries with static values. Drive/Datasette/Cartridge have dynamic values (image file listing).
-static const char* gs_driveIDValues[]                 = {"8","9","10","11"};
-static const char* gs_driveStatusValues[]             = {"Active","Not active"};
-static const char* gs_driveEmulationValues[]          = {"Fast","True"};
-static const char* gs_driveSoundEmulationValues[]     = {"Enabled","Disabled"};
-static const char* gs_datasetteControlValues[]	      = {"Stop","Play","Forward","Rewind","Record","Reset","Reset counter"};
-static const char* gs_datasetteResetWithCPUValues[]	  = {"Enabled","Disabled"};
-static const char* gs_cartResetOnChangeValues[]	      = {"Enabled","Disabled"};
 
 // Globals
 dev_data_s				g_devDataSrc[6];
 static int				gs_peripheralEntriesSize = 13;
+static const char*		gs_driveIDValues[]               = {"8","9","10","11"};
+static const char*		gs_driveStatusValues[]           = {"Active","Not active"};
+static const char*		gs_driveEmulationValues[]        = {"Fast","True"};
+static const char*		gs_driveSoundEmulationValues[]   = {"Enabled","Disabled"};
+static const char*		gs_datasetteControlValues[]	     = {"Stop","Play","Forward","Rewind","Record","Reset","Reset counter"};
+static const char*		gs_datasetteResetWithCPUValues[] = {"Enabled","Disabled"};
+static const char*		gs_cartResetOnChangeValues[]	 = {"Enabled","Disabled"};
 static PeripheralEntry	gs_list[] = 
 {
 	{"Drive","","",0,0,"",1}, /* Header line */
@@ -84,13 +83,21 @@ static PeripheralEntry	gs_list[] =
 	{"Content","Drive",              "Empty",0,0,"",0,ST_MODEL,DRIVE,0,0},
 	{"Mode",   "DriveTrueEmulation", "Fast",gs_driveEmulationValues,2,"",0,ST_MODEL,DRIVE_TRUE_EMULATION,0,1},
 	{"Sound",  "DriveSoundEmulation","Disabled",gs_driveSoundEmulationValues,2,"",0,ST_MODEL,DRIVE_SOUND_EMULATION,0,1},
-	{"Datasette","","",0,0,"",1}, /* Header line */
+	{"Datasette","","",0,0,"",1},
 	{"Content",       "Datasette",            "Empty",0,0,"",0,ST_MODEL,DATASETTE,0,0},
 	{"Control",       "DatasetteControl",     "Stop",gs_datasetteControlValues,7,"",0,ST_MODEL,DATASETTE_CONTROL,0,0},
 	{"Reset with CPU","DatasetteResetWithCPU","Enabled",gs_datasetteResetWithCPUValues,2,"",0,ST_MODEL,DATASETTE_RESET_WITH_CPU,0,1},
-	{"Cartridge","","",0,0,"",1}, /* Header line */
+	{"Cartridge","","",0,0,"",1},
 	{"Content",        "Cartridge",     "Empty",0,0,"",0,ST_MODEL,CARTRIDGE,0,0},
 	{"Reset on change","CartridgeReset","Enabled",gs_cartResetOnChangeValues,2,"",0,ST_MODEL,CARTRIDGE_RESET,0,1},
+};
+static const char*		gs_browserFilter[] = {
+	"CRT",												// Cartridge image
+	"D64","D71","D80","D81","D82","G64","G41","X64",	// Disk image
+	"T64","TAP",										// Tape image
+	"PRG","P00",										// Program image
+	"ZIP",												// Archive file
+	NULL
 };
 
 
@@ -118,18 +125,9 @@ void Peripherals::init(View* view, Controller* controller)
 	m_maxValueWidth = 850 - m_posXValue;
 	m_selectingValue = false;
 
+	// Set last browser dir.
 	string last_dir = getLastBrowserDir();
-
-	// Browser file filter.
-	const char* filter[] = {
-	   "CRT",														// Cartridge image
-       "D64","D71","D80","D81","D82","G64","G41","X64",				// Disk image
-       "T64","TAP",													// Tape image
-	   "PRG","P00",													// Program image
-	   "ZIP",														// Archive file
-	   NULL};
-
-	m_fileExp->init(last_dir.c_str(),0,0,0,filter);
+	m_fileExp->init(last_dir.c_str(),0,0,0,gs_browserFilter);
 
 	// Set function pointers for the handlers
 	for (int i=0; i<gs_peripheralEntriesSize; i++){
@@ -561,6 +559,11 @@ string Peripherals::showValuesListBox(const char** values, int size)
 
 string Peripherals::showFileBrowser(int peripheral)
 {
+	// Check if browser directory needs update.
+	string last_dir = getLastBrowserDir();
+	if (last_dir != m_fileExp->getDir())
+		m_fileExp->init(last_dir.c_str(),0,0,0,gs_browserFilter);
+
 	string entry_dir = m_fileExp->getDir();
 	string selection = m_fileExp->doModal();
 	string exit_dir = m_fileExp->getDir();

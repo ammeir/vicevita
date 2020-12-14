@@ -72,7 +72,7 @@ static const char* gs_colorPaletteValues[]		= {"Pepto (PAL)","Colodore","Vice","
 static const char* gs_borderVisibilityValues[]	= {"Show","Hide","Remove"};
 static const char* gs_joystickPortValues[]		= {"Port 1","Port 2"};
 static const char* gs_joystickSideValues[]		= {"Left","Right"};
-static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen"};
+static const char* gs_keyboardModeValues[]		= {"Full screen","Split screen","Slider"};
 static const char* gs_autofireSpeedValues[]		= {"Slow","Medium","Fast"};
 static const char* gs_cpuSpeedValues[]			= {"100%","125%","150%","175%","200%"};
 static const char* gs_hostCpuSpeedValues[]		= {"333 MHz","444 MHz"};
@@ -95,7 +95,7 @@ static SettingsEntry gs_list[] =
 	{"Joystick port", "JoystickPort", "Port 2",gs_joystickPortValues,2,"",0,ST_MODEL,JOYSTICK_PORT,0},
 	{"Joystick side", "JoystickSide", "Left",gs_joystickSideValues,2,"",0,ST_VIEW,JOYSTICK_SIDE,0},
 	{"Autofire speed","AutofireSpeed","Fast",gs_autofireSpeedValues,3,"",0,ST_VIEW,JOYSTICK_AUTOFIRE_SPEED,0},
-	{"Keyboard mode", "KeyboardMode", "Split screen",gs_keyboardModeValues,2,"",0,ST_VIEW,KEYBOARD_MODE,0},
+	{"Keyboard mode", "KeyboardMode", "Slider",gs_keyboardModeValues,3,"",0,ST_VIEW,KEYBOARD_MODE,0},
 	{"Performance","","",0,0,"",1},
 	{"CPU speed",     "CPUSpeed",    "100%",gs_cpuSpeedValues,5,"",0,ST_MODEL,CPU_SPEED,0},
 	{"Host CPU speed","HostCPUSpeed","333 MHz",gs_hostCpuSpeedValues,2,"",0,ST_VIEW,HOST_CPU_SPEED,0},
@@ -641,7 +641,7 @@ void Settings::applySettings(int group)
 
 void Settings::createConfFile(const char* file)
 {
-	// Create conficuration file with default values.
+	// Create conficuration file.
 
 	if (!file)
 		return;
