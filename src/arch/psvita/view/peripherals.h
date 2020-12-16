@@ -85,7 +85,7 @@ private:
 	void					loadSettingsFromFile(const char* ini_file);
 	void					saveSettingsToFile(const char* ini_file);
 	string					showValuesListBox(const char** values, int size);
-	string					showFileBrowser(int peripheral);
+	string					showFileBrowser();
 	string					getDisplayFitString(const char* str, int limit, float font_size = 1);
 	bool					isActionAllowed(PeripheralsAction);
 	bool					naviOnPeripheral();
@@ -98,6 +98,7 @@ private:
 	int						getValueIndex(const char* value, const char** values, int size);
 	int						getDriveId();
 	string					getLastBrowserDir();
+	string					browseToZipFolder();
 
 
 public:

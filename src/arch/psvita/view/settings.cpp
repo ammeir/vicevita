@@ -198,7 +198,7 @@ void Settings::buttonReleased(int button)
 		show();
 		break;
 		}
-	case SCE_CTRL_CIRCLE:
+	case SCE_CTRL_TRIANGLE:
 		// Load default settings
 		if (!isActionAllowed(STN_ACTION_LOAD_DEFAULT))
 			return;
@@ -213,7 +213,7 @@ void Settings::buttonReleased(int button)
 
 bool Settings::isExit(int buttons)
 {
-	if (buttons == SCE_CTRL_LTRIGGER || buttons == SCE_CTRL_LEFT){ // Previous menu
+	if (buttons == SCE_CTRL_CIRCLE || buttons == SCE_CTRL_LEFT){ // Previous menu
 		return true;
 	}
 
@@ -377,13 +377,13 @@ void Settings::renderInstructions()
 	case STN_STATE_DEFAULT_CONF:
 		// Default controls shown. Game not loaded.
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 395, 510);
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 490, 510);
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 490, 510);
 		txtr_draw_text(516, 523, LIGHT_GREY, "Exit");
 		break;
 	case STN_STATE_INGAME_DEFAULT_CONF:
 		// Default controls shown. Game loaded.
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 325, 510);
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 420, 510);
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 420, 510);
 		txtr_draw_text(446, 523, LIGHT_GREY, "Exit");
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 506, 510);
 		txtr_draw_text(531, 523, LIGHT_GREY, "Save");
@@ -396,29 +396,29 @@ void Settings::renderInstructions()
 		break;
 	case STN_STATE_GAME_CONF:
 		// Game opened. Customized controls shown.
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 300, 510);
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 390, 510);
-		txtr_draw_text(413, 523, LIGHT_GREY, "Load default");
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 560, 510);
-		txtr_draw_text(585, 523, LIGHT_GREY, "Exit");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 310, 510);
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], 400, 510);
+		txtr_draw_text(433, 523, LIGHT_GREY, "Load default");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 580, 510);
+		txtr_draw_text(605, 523, LIGHT_GREY, "Exit");
 		break;
 	case STN_STATE_DEFAULT_MOD: // Controls modified. Game not loaded.
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 200, 510);
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 290, 510);
-		txtr_draw_text(313, 523, LIGHT_GREY, "Load default");
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 460, 510);
-		txtr_draw_text(485, 523, LIGHT_GREY, "Exit");
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 548, 510);
-		txtr_draw_text(573, 523, LIGHT_GREY, "Save as default");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], 290, 510);
+		txtr_draw_text(323, 523, LIGHT_GREY, "Load default");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 470, 510);
+		txtr_draw_text(495, 523, LIGHT_GREY, "Exit");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 558, 510);
+		txtr_draw_text(583, 523, LIGHT_GREY, "Save as default");
 		break;
 	case STN_STATE_INGAME_MOD: // Controls modified. Game loaded.
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], 270, 510);
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 360, 510);
-		txtr_draw_text(383, 523, LIGHT_GREY, "Load default");
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 530, 510);
-		txtr_draw_text(555, 523, LIGHT_GREY, "Exit");
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 615, 510);
-		txtr_draw_text(640, 523, LIGHT_GREY, "Save");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], 360, 510);
+		txtr_draw_text(393, 523, LIGHT_GREY, "Load default");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 540, 510);
+		txtr_draw_text(565, 523, LIGHT_GREY, "Exit");
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 625, 510);
+		txtr_draw_text(650, 523, LIGHT_GREY, "Save");
 		break;
 	};
 }

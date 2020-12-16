@@ -228,7 +228,8 @@ void SaveSlots::buttonReleased(int button)
 
 bool SaveSlots::isExit(int buttons)
 {
-	if (buttons == SCE_CTRL_LTRIGGER){
+	//PSV_DEBUG("SaveSlots::isExit()");
+	if (buttons == SCE_CTRL_CIRCLE){
 		return true;
 	}
 
@@ -753,8 +754,8 @@ void SaveSlots::drawInstructions()
 		case SAVESLOTS_INGAME_NOSAVES:
 			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], 394, 515);
 			txtr_draw_text(420, 528, LIGHT_GREY, "Save");
-			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_LTRIGGER_BLUE], 500, 513);
-			txtr_draw_text(540, 528, LIGHT_GREY, "Exit");
+			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 500, 515);
+			txtr_draw_text(526, 528, LIGHT_GREY, "Exit");
 			break;
 
 		case SAVESLOTS_INGAME_SAVES:
@@ -764,12 +765,12 @@ void SaveSlots::drawInstructions()
 			txtr_draw_text(393, 528, LIGHT_GREY, "Load");
 			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], 470, 516);
 			txtr_draw_text(503, 528, LIGHT_GREY, "Delete");
-			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_LTRIGGER_BLUE], 596, 513);
-			txtr_draw_text(636, 528, LIGHT_GREY, "Exit");
+			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 596, 515);
+			txtr_draw_text(622, 528, LIGHT_GREY, "Exit");
 			break;
 		default:
-			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_LTRIGGER_BLUE], 433, 513);
-			txtr_draw_text(475, 528, LIGHT_GREY, "Exit");
+			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 433, 515);
+			txtr_draw_text(459, 528, LIGHT_GREY, "Exit");
 	};
 }
 

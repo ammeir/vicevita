@@ -138,7 +138,7 @@ void FileExplorer::buttonReleased(int button)
 
 bool FileExplorer::isExit(int button)
 {
-	if (button == SCE_CTRL_LTRIGGER || button == SCE_CTRL_LEFT){ // Previous menu
+	if (button == SCE_CTRL_CIRCLE || button == SCE_CTRL_LEFT){ // Previous menu
 		return true;
 	}
 
@@ -275,8 +275,8 @@ void FileExplorer::render()
 	vita2d_draw_line(0, 495, 960, 495, YELLOW_TRANSPARENT);
 
 	// Instructions
-	vita2d_draw_texture(g_instructionBitmaps[2], 400, 510); // Navigate buttons
-	vita2d_draw_texture(g_instructionBitmaps[3], 490, 510); // Dpad left button
+	vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_X], 400, 510); // Navigate buttons
+	vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 490, 510); // Circle button
 	txtr_draw_text(516, 523 , LIGHT_GREY, "Exit");
 }
 

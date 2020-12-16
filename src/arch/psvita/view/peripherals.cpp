@@ -178,29 +178,23 @@ void Peripherals::buttonReleased(int button)
 		show();
 		break;
 	case SCE_CTRL_TRIANGLE:
-		// Detach image
-		if (!isActionAllowed(PERIF_ACTION_DETACH))
-			return;
-
-		detachImage(gs_list[m_highlight].id);
-		show();
+		// Attach/Detach image
+		if (naviOnPeripheral()){
+			if (gs_list[m_highlight].value == "Empty"){
+				string file = showFileBrowser();
+			
+				if (!file.empty()){
+					gtShowMsgBoxNoBtn("Attaching...", this);
+					attachImage(gs_list[m_highlight].id, file.c_str());
+				}
+			}else
+				detachImage(gs_list[m_highlight].id);
+		
+			show();
+		}
 		break;
 	case SCE_CTRL_CIRCLE: 
-		// Attach image.
-		{
-			if (!isActionAllowed(PERIF_ACTION_ATTACH))
-				return;
-
-			string file = showFileBrowser(gs_list[m_highlight].id);
-			
-			if (!file.empty()){
-				gtShowMsgBoxNoBtn("Attaching...", this);
-				attachImage(gs_list[m_highlight].id, file.c_str());
-			}
-
-			show();
-			break;
-		}
+		break;
 	case SCE_CTRL_CROSS:
 		// Load image
 		{
@@ -229,24 +223,39 @@ void Peripherals::buttonReleased(int button)
 				break;
 			}
 
-			//m_view->updateSettings();
 			Navigator::m_running = false; 
 			m_exitCode = EXIT_MENU;
 		}
 		break;
 	case SCE_CTRL_RTRIGGER:
-		// Freeze cartridge
-		if (!isActionAllowed(PERIF_ACTION_FREEZE))
-			return;
 
-		m_controller->setCartControl(CART_CONTROL_FREEZE);
+		if (gs_list[m_highlight].id == CARTRIDGE){
+			// Freeze cartridge.
+			if (!isActionAllowed(PERIF_ACTION_FREEZE))
+				return;
+
+			m_controller->setCartControl(CART_CONTROL_FREEZE);
+			break;
+		}
+		
+		if (gs_list[m_highlight].id == DRIVE){
+			// Browse to zip folder.
+			string file = browseToZipFolder();
+			
+			if (!file.empty()){
+				gtShowMsgBoxNoBtn("Attaching...", this);
+				attachImage(gs_list[m_highlight].id, file.c_str());
+			}
+
+			show();
+		}
 		break;
 	}
 }
 
 bool Peripherals::isExit(int buttons)
 {
-	if (buttons == SCE_CTRL_LTRIGGER || buttons == SCE_CTRL_LEFT){ // Previous menu
+	if (buttons == SCE_CTRL_CIRCLE || buttons == SCE_CTRL_LEFT){ // Previous menu
 		return true;
 	}
 
@@ -415,72 +424,92 @@ void Peripherals::render()
 void Peripherals::renderInstructions()
 {
 	if (m_selectingValue){
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_X], 400, 510); // Navigate buttons
-		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 495, 510); // Dpad left button
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_X], 400, 510); 
+		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], 495, 510);
 		txtr_draw_text(521, 523, LIGHT_GREY, "Back");
 		return;
 	}
 
 	int offset_x=0;
 	if (naviOnPeripheral()){
-		if (gs_list[m_highlight].id == DRIVE && getKeyValue(DRIVE_STATUS) == "Not active"){
-			// Drive is not active. 
-			if (gs_list[m_highlight].value == "Empty"){
-				// Drive is empty.
+
+		if (gs_list[m_highlight].value == "Empty"){
 				if (m_settingsChanged)
-					offset_x = -60;
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=400, 510); 
-				offset_x+=95;
+					offset_x = -50;
+
+			if (gs_list[m_highlight].id == DRIVE){
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=290, 510); 
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=65, 510);
+				txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Attach");
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_RTRIGGER_BLUE], offset_x+=93, 508);
+				txtr_draw_text(offset_x+=40, 523, LIGHT_GREY, "Zip dir");
+				offset_x += 85;
 			}else{
-				// Drive has image. Draw detach.
-				if (m_settingsChanged)
-					offset_x = -60;
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=357, 510); 
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=65, 511);
-				txtr_draw_text(offset_x+=33, 523, LIGHT_GREY, "Detach");
-				offset_x+=100;
+				// Datasette/Cartridge
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=350, 510); 
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=65, 510);
+				txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Attach");
+				offset_x += 90;
 			}
 		}
-		else if (gs_list[m_highlight].value == "Empty"){
-			if (m_settingsChanged)
-				offset_x = -60;
-			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=357, 510); 
-			vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], offset_x+=65, 510);
-			txtr_draw_text(offset_x+=22, 523, LIGHT_GREY, "Attach");
-			offset_x+=93;
-		}
 		else{
+			// Drive/Datasette/Cartridge not empty.
 			if (gs_list[m_highlight].id == CARTRIDGE){
 				if (m_settingsChanged)
-					offset_x = -60;
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=160, 510);
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], offset_x+=70, 510);
-				txtr_draw_text(offset_x+=22, 523, LIGHT_GREY, "Attach");
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=88, 511);
-				txtr_draw_text(offset_x+=33, 523, LIGHT_GREY, "Detach");
+					offset_x = -50;
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=205, 510);
+				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=60, 510);
+				txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Detach");
 				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CROSS_BLUE], offset_x+=92, 510);
 				txtr_draw_text(offset_x+=20, 523, LIGHT_GREY, "Auto load");
 				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_RTRIGGER_BLUE], offset_x+=120, 508);
 				txtr_draw_text(offset_x+=40, 523, LIGHT_GREY, "Freeze");
-				offset_x+=95;
+				offset_x+=90;
 			}
 			else{
 				if (m_settingsChanged)
-					offset_x = -60;
-				if (gs_list[m_highlight].values_size > 1)
-					vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], offset_x+=210, 510);
-				else{
-					vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=225, 510);
-					offset_x-=28;
-				}
+					offset_x = -50;
+
+				if (gs_list[m_highlight].id == DRIVE){
+	
+					if (getKeyValue(DRIVE_STATUS) == "Active"){
+						if (gs_list[m_highlight].values_size > 1)
+							vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], offset_x+=200, 510);
+						else
+							vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=200, 510);
+						
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=90, 510);
+						txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Detach");
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CROSS_BLUE], offset_x+=92, 510);
+						txtr_draw_text(offset_x+=20, 523, LIGHT_GREY, "Auto load");
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_RTRIGGER_BLUE], offset_x+=120, 508);
+						txtr_draw_text(offset_x+=40, 523, LIGHT_GREY, "Zip dir");
+						offset_x+=80;
+					}else{
+						if (gs_list[m_highlight].values_size > 1)
+							vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], offset_x+=285, 510);
+						else
+							vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=285, 510);
+					
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=90, 510);
+						txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Detach");
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_RTRIGGER_BLUE], offset_x+=92, 508);
+						txtr_draw_text(offset_x+=40, 523, LIGHT_GREY, "Zip dir");
+						offset_x+=80;
+					}
+				}else{
+					// Datasette
+					if (gs_list[m_highlight].values_size > 1)
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], offset_x+=275, 510);
+					else
+						vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN], offset_x+=275, 510);
 				
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], offset_x+=90, 510);
-				txtr_draw_text(offset_x+=22, 523, LIGHT_GREY, "Attach");
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=88, 511);
-				txtr_draw_text(offset_x+=33, 523, LIGHT_GREY, "Detach");
-				vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CROSS_BLUE], offset_x+=92, 510);
-				txtr_draw_text(offset_x+=20, 523, LIGHT_GREY, "Auto load");
-				offset_x+=120;
+					vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_TRIANGLE_BLUE], offset_x+=90, 510);
+					txtr_draw_text(offset_x+=32, 523, LIGHT_GREY, "Detach");
+					vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CROSS_BLUE], offset_x+=92, 510);
+					txtr_draw_text(offset_x+=20, 523, LIGHT_GREY, "Auto load");
+					offset_x+=115;
+				}
 			}
 		}
 	}
@@ -488,11 +517,11 @@ void Peripherals::renderInstructions()
 		if (m_settingsChanged)
 			offset_x = -60;
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_NAVIGATE_UP_DOWN_LEFT], offset_x+=400, 510);
-		offset_x+=95;
+		offset_x+=90;
 	}
 
-	vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_DPAD_LEFT_BLUE], offset_x, 510);
-	txtr_draw_text(offset_x+=26, 523, LIGHT_GREY, "Exit");
+	vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], offset_x, 510);
+	txtr_draw_text(offset_x+=25, 523, LIGHT_GREY, "Exit");
 	
 	if (m_settingsChanged){
 		vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_SQUARE_MAGENTA], offset_x+=70, 510);
@@ -516,6 +545,8 @@ bool Peripherals::isActionAllowed(PeripheralsAction action)
 				gs_list[m_highlight].value != "Empty")? true: false;
 	case PERIF_ACTION_FREEZE:
 		return (gs_list[m_highlight].id == CARTRIDGE && gs_list[m_highlight].value != "Empty")? true: false;
+	//case PERIF_ACTION_ZIP_DIR:
+		
 	default:
 		return false;
 	};
@@ -557,21 +588,23 @@ string Peripherals::showValuesListBox(const char** values, int size)
 	return gtShowListBox(x, m_highligtBarYpos-1, 0, 0, values, size, this, highlight_value);
 }
 
-string Peripherals::showFileBrowser(int peripheral)
+string Peripherals::showFileBrowser()
 {
+	string selection;
+
 	// Check if browser directory needs update.
 	string last_dir = getLastBrowserDir();
 	if (last_dir != m_fileExp->getDir())
 		m_fileExp->init(last_dir.c_str(),0,0,0,gs_browserFilter);
 
 	string entry_dir = m_fileExp->getDir();
-	string selection = m_fileExp->doModal();
+	selection = m_fileExp->doModal();
 	string exit_dir = m_fileExp->getDir();
 
 	// Save directory if it has changed.
 	if (exit_dir != entry_dir)
 		IniParser::setValueToIni(DEF_CONF_FILE_PATH, INI_FILE_SEC_FILE_BROWSER, INI_FILE_KEY_LASTDIR, exit_dir.c_str());
-
+	
 	return selection;
 }
 
@@ -882,5 +915,45 @@ string Peripherals::getLastBrowserDir()
 	}
 
 	return ret;
+}
+
+string Peripherals::browseToZipFolder()
+{
+	// Show the zip folder of the currently selected drive. 
+	// The folder is used when changing disk on multidisk games.
+	// Browser location will not be saved in this case. 
+
+	const char* value;
+	const char* path = NULL;
+	string selection;
+
+	getKeyValues(DRIVE_NUMBER,&value,0,0,0);
+			
+	if (!strcmp(value, "8"))
+		path = TMP_DRV8_DIR;
+	else if (!strcmp(value, "9"))
+		path = TMP_DRV9_DIR;
+	else if (!strcmp(value, "10"))
+		path = TMP_DRV10_DIR;
+	else if (!strcmp(value, "11"))
+		path = TMP_DRV11_DIR;
+
+	// Store current status of the browser.
+	string last_game_dir = m_fileExp->getDir();
+	int last_highlight_index = m_fileExp->getHighlightIndex();
+	int last_bordertop_index = m_fileExp->getBorderTopIndex();
+	float last_scrollbar_ypos = m_fileExp->getScrollBarPosY();
+		
+	m_fileExp->init(path,0,0,0,gs_browserFilter);
+	selection = m_fileExp->doModal();
+
+	// Revert browser changes.
+	m_fileExp->init(last_game_dir.c_str(), 
+			        last_highlight_index, 
+				    last_bordertop_index, 
+					last_scrollbar_ypos,
+				    gs_browserFilter);	
+
+	return selection;
 }
 
