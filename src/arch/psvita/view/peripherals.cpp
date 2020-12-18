@@ -540,12 +540,15 @@ bool Peripherals::isActionAllowed(PeripheralsAction action)
 	case PERIF_ACTION_DETACH:
 		return (naviOnPeripheral() && gs_list[m_highlight].value != "Empty")? true: false;
 	case PERIF_ACTION_LOAD:
-		return (naviOnPeripheral() && 
-			    getKeyValue(DRIVE_STATUS) == "Active" &&
-				gs_list[m_highlight].value != "Empty")? true: false;
+		if (!naviOnPeripheral())
+			return false;
+
+		if (gs_list[m_highlight].id == DRIVE)
+			return (getKeyValue(DRIVE_STATUS) == "Active" && gs_list[m_highlight].value != "Empty")? true: false;
+		else
+			return (gs_list[m_highlight].value != "Empty")? true: false;
 	case PERIF_ACTION_FREEZE:
 		return (gs_list[m_highlight].id == CARTRIDGE && gs_list[m_highlight].value != "Empty")? true: false;
-	//case PERIF_ACTION_ZIP_DIR:
 		
 	default:
 		return false;
@@ -826,18 +829,6 @@ string Peripherals::getImageFileName()
 
 	if (image_file.empty())
 		return "";
-
-	// It might be better to show the path so that the user knows where to look for extracted files.
-	// Remove path.
-	/*size_t slash_pos = image_file.find_last_of("/");
-	if (slash_pos != string::npos){
-		image_file = image_file.substr(slash_pos+1, string::npos);
-	}else{
-		size_t colon_pos = image_file.find_last_of(":");
-		if (colon_pos != string::npos){
-			image_file = image_file.substr(colon_pos+1, string::npos);
-		}
-	}*/
 
 	// Shrink the string to fit the screen.
 	return getDisplayFitString(image_file.c_str(), 900);
