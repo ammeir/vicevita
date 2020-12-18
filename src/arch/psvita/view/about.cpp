@@ -64,10 +64,10 @@ void About::show()
 
 	vita2d_draw_texture(m_rainbowLogo, 325, 150);
 		
-	txtr_draw_text(400, 170, YELLOW, "VICE VITA C64  v.1.1");
+	txtr_draw_text(400, 170, YELLOW, "VICE VITA C64  v.1.2");
 	txtr_draw_text(325, 220, YELLOW, "Commodore 64 emulator written by:");
-	txtr_draw_text(325, 250, YELLOW, "2019-2020   Amnon-Dan Meir.");
-	txtr_draw_text(325, 280, YELLOW, "1998-2018   VICE team.");
+	txtr_draw_text(325, 250, YELLOW, "2019-2020   Amnon-Dan Meir");
+	txtr_draw_text(325, 280, YELLOW, "1998-2018   VICE team");
 	txtr_draw_text(325, 325, YELLOW, "For additional information:");
 	txtr_draw_text(325, 355, C64_BLUE, "github.com/ammeir/vicevita");
 	txtr_draw_text(325, 380, C64_BLUE, "Twitter: @ammeir71");
@@ -77,8 +77,8 @@ void About::show()
 	vita2d_draw_line(20, 495, 940, 495, YELLOW_TRANSPARENT);
 
 	// Instructions
-	vita2d_draw_texture(g_instructionBitmaps[3], 435, 510); // Left trigger button
-	txtr_draw_text(463, 523, LIGHT_GREY, "Back");
+	vita2d_draw_texture(g_instructionBitmaps[IMG_BTN_CIRCLE_BLUE], 435, 510); // Left trigger button
+	txtr_draw_text(463, 523, LIGHT_GREY, "Exit");
 
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
@@ -86,7 +86,7 @@ void About::show()
 
 bool About::isExit(int buttons)
 {
-	if (buttons == SCE_CTRL_LTRIGGER || buttons == SCE_CTRL_LEFT)
+	if (buttons == SCE_CTRL_CIRCLE || buttons == SCE_CTRL_LEFT)
 		return true;
 
 	return false;
