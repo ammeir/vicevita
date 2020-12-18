@@ -706,7 +706,7 @@ vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} ${UNSAFE_FLAG})
 # Custom target to create our vpk. The ALL option indicates that this target should be added to the 
 # default build target so that it will be run every time.
 add_custom_target(${PROJECT_NAME}.vpk ALL
-  COMMAND ${VITASDK}/bin/vita-mksfoex -s TITLE_ID=${VITA_TITLEID} ${VITA_APP_NAME} APP_VER=${VITA_VERSION} ${PROJECT_NAME}.vpk_param.sfo
+  COMMAND ${VITASDK}/bin/vita-mksfoex -s TITLE_ID=${VITA_TITLEID} ${VITA_APP_NAME} -s APP_VER=${VITA_VERSION} ${PROJECT_NAME}.vpk_param.sfo
   COMMAND ${VITASDK}/bin/vita-pack-vpk -s ${PROJECT_NAME}.vpk_param.sfo -b ${PROJECT_NAME}.self
   -a ${CMAKE_SOURCE_DIR}/sce_sys/icon0.png=sce_sys/icon0.png
   -a ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png
