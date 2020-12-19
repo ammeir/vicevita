@@ -40,11 +40,12 @@ using std::list;
 // Globals (used for better performance).
 int  g_keyboardStatus = KEYBOARD_DOWN;
 
-int animationArr[27] = {
-	0,10,20,30,40,50,60,70,80,
-	90,100,110,120,130,140,150,160,
-	170,180,190,200,210,220,230,240,
-	250,264
+int animationArr[34] = {
+	0,8,16,24,32,40,48,56,
+	64,72,80,88,96,104,112,120,
+	128,136,144,152,160,168,176,184,
+	192,200,208,216,224,232,240,248,
+	256,264
 };
 
 VirtualKeyboard::VirtualKeyboard()
@@ -233,14 +234,14 @@ void VirtualKeyboard::render()
 			868, // width of keyboard bitmap
 			animationArr[i]); // height of keyboard bitmap
 		
-		if (i++ == 26){
+		if (i++ == 33){
 			// Add a little delay by drawing the last frame few times.
 			if (j++ > 7){
 				g_keyboardStatus = KEYBOARD_UP;
 				m_view->updateViewPos(); // Make a split screen.
 				i = j = 0;
 			}else
-				i = 26; 
+				i = 33; 
 		}
 		
 		// Force redraw to keep the animation on. This eats performance a little.
@@ -264,7 +265,7 @@ void VirtualKeyboard::render()
 				868, // width of keyboard bitmap
 				264 - animationArr[i]); // height of keyboard bitmap
 
-		if (i++ == 26){
+		if (i++ == 33){
 			g_keyboardStatus = KEYBOARD_DOWN;
 			m_updated = false;
 			i = j = 0;
