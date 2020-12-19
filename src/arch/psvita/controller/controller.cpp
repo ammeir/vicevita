@@ -774,7 +774,6 @@ void Controller::getImageFileContents(int peripheral, const char* image, const c
 	*values_size = 0;
 	image_contents_t* content = NULL;
 
-
 	if (peripheral == DRIVE || peripheral == DATASETTE){
 		// Retrieve disk/tape contents
 
@@ -797,15 +796,13 @@ void Controller::getImageFileContents(int peripheral, const char* image, const c
 			entry = entry->next;
 		}
 
-		if (!list_size)
-			return;
-
-		list_size++; // Add one for header entry.
+		list_size++; // Add one for header entry. Content has always a header.
 		*values = new const char*[list_size];
 		*values_size = list_size;
 		const char** p = *values;
 
-		*p++ = image_contents_to_string(content, 1); // Header line.
+		*p++ = image_contents_to_string(content, IMAGE_CONTENTS_STRING_ASCII); // Header line.
+
 		entry = content->file_list;
 
 		for (int i=0; i<list_size-1; ++i){
@@ -1214,7 +1211,8 @@ void Controller::syncSetting(int key)
 			getImageFileContents(key, dev_image_file, &stn_value_list, &stn_list_size);
 			if (stn_list_size){
 				gs_view->onSettingChanged(key, stn_value_list[0], dev_data_src, stn_value_list, stn_list_size, 15);
-			}
+			}else
+				gs_view->onSettingChanged(key, "", dev_data_src, stn_value_list, stn_list_size, 15);
 		}
 		else{
 			// Device has attachement and something is showing in settings.
@@ -1222,7 +1220,7 @@ void Controller::syncSetting(int key)
 			if (!strcmp(stn_data_src, dev_data_src)){
 				return;
 			}
-			// New image attached. First deallocate old list values.
+			// New image attached. First deallocate old list values and then populate again.
 			if (stn_value_list && stn_list_size){
 				const char** p = stn_value_list;
 				for (int i=0; i<stn_list_size; ++i){
@@ -1232,9 +1230,11 @@ void Controller::syncSetting(int key)
 			}
 
 			getImageFileContents(key, dev_image_file, &stn_value_list, &stn_list_size);
+
 			if (stn_list_size){
 				gs_view->onSettingChanged(key, stn_value_list[0], dev_data_src, stn_value_list, stn_list_size, 15);
-			}	
+			}else
+				gs_view->onSettingChanged(key, "", dev_data_src, stn_value_list, stn_list_size, 15);
 		}
 		break;
 	}
